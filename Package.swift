@@ -1,25 +1,24 @@
-// swift-tools-version:4.1
+// swift-tools-version:5.0
 import PackageDescription
 
 let package = Package(
     name: "Cacao",
-    products: [
-        .library(name: "Cacao", targets: ["Cacao"]),
-        .executable(name: "CacaoDemo", targets: ["CacaoDemo"]),
-        ],
+	products: [
+		.library(name: "Cacao", targets: ["Cacao"])
+	],
     dependencies: [
         .package(
-            url: "https://github.com/PureSwift/Silica.git",
-            .branch("master")
+            path: "https://github.com/Kiwijane3/Silica.git"
         ),
         .package(
-            url: "https://github.com/PureSwift/Cairo.git",
-            .branch("master")
+            path: "https://github.com/Kiwijane3/Cairo.git"
         ),
         .package(
-            url: "https://github.com/PureSwift/SDL.git",
-            .branch("master")
-        )
+            path: "https://github.com/PureSwift/SDL.git"
+        ),
+		.package(
+			path: "https://github.com/Kiwijane3/Cassowary.git"
+		)
     ],
     targets: [
         .target(
@@ -27,14 +26,9 @@ let package = Package(
             dependencies: [
                 "Silica",
                 "Cairo",
-                "SDL"
+                "SDL",
+				"Cassowary"
             ]
-        ),
-        .target(
-            name: "CacaoDemo",
-            dependencies: [
-                "Cacao"
-            ]
-        ),
+        )
         ]
 )

@@ -8,13 +8,13 @@
 import Foundation
 import Silica
 
+import SDL
+import CSDL2
+
 /// An object that provides the backdrop for your app’s user interface and provides important event-handling behaviors.
 open class UIWindow: UIView {
     
     // MARK: - Properties
-    
-    /// The root view controller for the window.
-    public final var rootViewController: UIViewController? { didSet { rootViewControllerChanged(oldValue) } }
     
     /// The screen on which the window is displayed.
     public final var screen: UIScreen = UIScreen.main
@@ -24,16 +24,128 @@ open class UIWindow: UIView {
     
     /// A Boolean value that indicates whether the window is the key window for the app.
     public final var isKeyWindow: Bool { return UIApplication.shared.keyWindow === self }
+	
+	public var windowController: UIWindowController? {
+		get {
+			return viewController as? UIWindowController;
+		}
+	}
+
+	public final var sdlWindow: SDLWindow;
+	
+	public final var id: Int {
+		get {
+			return Int(sdlWindow.identifier);
+		}
+	}
+	
+	public var windowBounds: CGRect { return CGRect(origin: .zero, size: size.window) }
+	
+	public var nativeBounds: CGRect { return CGRect(origin: .zero, size: size.native) }
+	
+	public var scale: CGFloat { return size.native.width / size.window.width }
+	
+	public var nativeScale: CGFloat { return scale }
+	
+	private var size: (window: CGSize, native: CGSize) = (window: .zero, native: .zero) {
+		didSet {
+			sizeChanged();
+		}
+	}
+	
+	internal let renderer: SDLRenderer;
     
     // MARK: - Initialization
     
-    public override init(frame: CGRect) {
-        
-        super.init(frame: frame)
-        
-        screen.addWindow(self)
+    public init() {
+		// Generate the underlying SDL Window.
+		// Get the options from the shared application.
+		let options = UIApplication.shared.options;
+		
+		var windowOptions: BitMaskOptionSet<SDLWindow.Option> = [.allowRetina, .opengl];
+		
+		if options.canResizeWindow {
+			windowOptions.insert(.resizable);
+		}
+		
+		let initialWindowSize = options.windowSize;
+		
+		sdlWindow = try! SDLWindow(title: options.windowName, frame: (x: .centered, y: .centered, width: Int(initialWindowSize.width), height: Int(initialWindowSize.height)), options: windowOptions);
+		
+		renderer = try! SDLRenderer(window: sdlWindow);
+		
+		super.init(frame: .zero);
+		self.updateSize();
     }
-    
+	
+	internal func updateSize() {
+		let windowSize = sdlWindow.size;
+		let size = CGSize(width: CGFloat(windowSize.width), height: CGFloat(windowSize.height));
+		let rendererSize = sdlWindow.drawableSize;
+		let nativeSize = CGSize(width: CGFloat(rendererSize.width), height: CGFloat(rendererSize.height));
+		self.size = (size, nativeSize);
+		sizeChanged();
+		self.needsLayout = true;
+		self.needsDisplay = true;
+	}
+	
+	internal func sizeChanged() {
+		frame = CGRect(origin: .zero, size: size.window);
+	}
+	
+	internal func update() throws {
+		if needsLayout {
+			
+			defer {
+				needsLayout = false;
+			}
+			
+			self.layoutIfNeeded();
+			
+			needsDisplay = true;
+			
+		}
+		
+		if needsDisplay {
+			
+			defer {
+				needsDisplay = false;
+			}
+			
+			try renderer.clear();
+			
+			try render(view: self);
+			
+			renderer.present();
+			
+		}
+		
+	}
+	
+	private func render(view: UIView, origin: CGPoint = .zero) throws {
+		
+		guard view.shouldRender
+			else { return }
+		
+		// add translation
+		//context.translate(x: view.frame.x, y: view.frame.y)
+		var relativeOrigin = origin
+		relativeOrigin.x += (view.frame.origin.x + (view.superview?.bounds.origin.x ?? 0.0)) * scale
+		relativeOrigin.y += (view.frame.origin.y + (view.superview?.bounds.origin.y ?? 0.0)) * scale
+		
+		// frame of view relative to SDL window
+		let rect = SDL_Rect(x: Int32(relativeOrigin.x),
+							y: Int32(relativeOrigin.y),
+							w: Int32(view.bounds.size.width * scale),
+							h: Int32(view.bounds.size.height * scale))
+		
+		// render view
+		try view.render(on: self, in: rect)
+		
+		// render subviews
+		try view.subviews.forEach { try render(view: $0, origin: relativeOrigin) }
+	}
+	
     // MARK: - Methods
     
     /// Shows the window and makes it the key window.
@@ -118,13 +230,6 @@ open class UIWindow: UIView {
         }
     }
     
-    // MARK: - Subclassed Methods
-    
-    open override func layoutSubviews() {
-        
-        self.rootViewController?.view.frame = self.bounds
-    }
-    
     // MARK: - UIResponder
     
     internal var _firstResponder: UIResponder?
@@ -153,34 +258,28 @@ open class UIWindow: UIView {
     }
     
     public final override func becomeFirstResponder() -> Bool {
-        
-        guard let rootViewController = self.rootViewController,
-            rootViewController.becomeFirstResponder()
-            else { return super.becomeFirstResponder() }
+		
+		// Make the window's root view controller the first responder if possible.
+		guard let windowController = viewController as? UIWindowController,
+			let rootController = windowController.rootViewController,
+			rootController.becomeFirstResponder()
+		else {
+			return super.becomeFirstResponder()
+		}
         
         return true
     }
     
     // MARK: - Private Methods
     
-    private func rootViewControllerChanged(_ oldValue: UIViewController?) {
-        
-        oldValue?.view?.removeFromSuperview()
-        
-        guard let viewController = rootViewController
-            else { return }
-        
-        addSubview(viewController.view)
-        
-        layoutIfNeeded()
-    }
-    
     private func sendTouches(for event: UITouchesEvent) {
         
         let touches = event.touches
         
         for touch in touches {
-            
+			
+			debugPrint("Touch at \(touch.location()), view was \(touch.view)");
+			
             switch touch.phase {
             case .began: touch.view?.touchesBegan(touches, with: event)
             case .moved: touch.view?.touchesMoved(touches, with: event)
@@ -192,19 +291,39 @@ open class UIWindow: UIView {
     }
     
     private func sendButtons(for event: UIPressesEvent) {
-        
-        let responders = event.responders(for: self)
-        
-        for responder in responders {
-            
-            
-        }
+		for press in event.allPresses {
+			switch press.phase {
+			case .began:
+				firstResponder?.pressBegan(press, with: event);
+			case .changed:
+				firstResponder?.pressChanged(press, with: event);
+			case .ended:
+				firstResponder?.pressEnded(press, with: event);
+			case .cancelled:
+				firstResponder?.pressCancelled(press, with: event);
+			case .stationary:
+				break;
+			}
+		}
     }
     
     internal override var responderWindow: UIWindow? {
         
         return self
     }
+	
+	public func minimise() {
+		sdlWindow.minimise();
+	}
+	
+	public func maximise() {
+		sdlWindow.maximise();
+	}
+	
+	public func close() {
+		sdlWindow.close();
+	}
+
 }
 
 // MARK: - Supporting Types

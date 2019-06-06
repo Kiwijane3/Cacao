@@ -19,31 +19,72 @@ open class UILabel: UIView {
         // disable user interaction
         self.isUserInteractionEnabled = false
     }
-    
+	
     // MARK: - Properties
     
-    open var text: String? { didSet { setNeedsDisplay() } }
+    open var text: String? {
+		didSet {
+			textBlock.rawText = text ?? "";
+			setNeedsDisplay();
+			setNeedsLayout();
+		}
+		
+	}
     
-    open var font: UIFont = UIFont(name: "Helvetica", size: 17)! { didSet { setNeedsDisplay() } }
+	open var font: UIFont = UIFont(name: "Helvetica", size: 17)! {
+		didSet {
+			textBlock.attributes.font = font;
+			setNeedsDisplay();
+			setNeedsLayout();
+		}
+		
+	}
     
-    open var textColor: UIColor = .black { didSet { setNeedsDisplay() } }
+    open var textColor: UIColor = .black {
+		didSet {
+			textBlock.attributes.color = textColor;
+			setNeedsDisplay();
+		}
+	}
     
-    open var textAlignment: TextAlignment = .left { didSet { setNeedsDisplay() } }
-    
+    open var textAlignment: TextAlignment = .left {
+		didSet {
+			textBlock.attributes.paragraphStyle.alignment = textAlignment;
+			setNeedsDisplay();
+		}
+	}
+	
+	open var preferredMaxLayoutWidth: CGFloat = 0 {
+		didSet {
+			textBlock.wrapWidth = preferredMaxLayoutWidth;
+		}
+	}
+	
+	private var textBlock = TextBlock();
+	
+	// MARK: - intrinsic content size based off text size.
+	
+	open override var intrinsicContentSize: CGSize {
+		let width = textBlock.width + layoutMargins.left + layoutMargins.right;
+		let height = textBlock.height + layoutMargins.top + layoutMargins.bottom;
+		return CGSize(width: width, height: height);
+	}
+	
     // MARK: - Draw
     
     open override func draw(_ rect: CGRect) {
-        
+		
+		print("Drawing TextLabel");
+		
         guard let context = UIGraphicsGetCurrentContext()
             else { return }
-        
-        var attributes = TextAttributes()
-        attributes.font = font
-        attributes.color = textColor
-        attributes.paragraphStyle.alignment = textAlignment
-        
-        text?.draw(in: self.bounds, context: context, attributes: attributes)
+		
+		let x = layoutMargins.left;
+		let y = layoutMargins.top;
+		let origin = CGRect(x: x, y: y, width: 0, height: 0);
+		textBlock.draw(in: origin, context: context);
     }
+	
 }
 
 // TODO: UIAppearance

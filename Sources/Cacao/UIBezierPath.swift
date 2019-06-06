@@ -149,25 +149,31 @@ public final class UIBezierPath {
     // MARK: - Methods
     
     // MARK: Drawing
-    
-    public func fill() {
-        
-        guard let context = UIGraphicsGetCurrentContext()
-            else { return }
-        
+	
+	// Fills into the current CGContext, if available.
+	public func fill() {
+		if let context = UIGraphicsGetCurrentContext() {
+			fill(into: context);
+		}
+	}
+	
+	// Fill into the given CGContext.
+	public func fill(into context: Silica.CGContext) {
         context.saveGState()
         setContextPath()
         let fillRule: Silica.CGPathFillRule = usesEvenOddFillRule ? .evenOdd : .winding
         context.fillPath(using: fillRule)
         context.beginPath()
-        context.restoreGState()
+		context.restoreGState();
     }
+	
+	public func stroke() {
+		if let context = UIGraphicsGetCurrentContext() {
+			stroke(into: context);
+		}
+	}
     
-    public func stroke() {
-        
-        guard let context = UIGraphicsGetCurrentContext()
-            else { return }
-        
+	public func stroke(into context: Silica.CGContext) {
         context.saveGState()
         setContextPath()
         context.strokePath()

@@ -37,9 +37,9 @@ internal final class UIEventEnvironment {
     }
     
     internal func handleEventQueue() {
-        
+		
         for hidEvent in eventQueue {
-            
+			
             guard let event = event(for: hidEvent)
                 else { handleNonUIEvent(hidEvent); continue }
             
@@ -62,110 +62,12 @@ internal final class UIEventEnvironment {
         switch hidEvent.data {
             
         case let .touch(mouseEvent, screenLocation):
-            
-            let event: UITouchesEvent
-            
-            if let currentEvent = touchesEvent {
-                
-                event = currentEvent
-                
-            } else {
-                
-                event = UITouchesEvent(timestamp: timestamp)
-            }
-            
-            // get UIView touched
-            // Only the key window can recieve touch input
-            guard let window = UIApplication.shared.keyWindow,
-                let view = window.hitTest(screenLocation, with: event)
-                else { return nil }
-            
-            // get UIGestureRecognizer touched
-            var gestures = [UIGestureRecognizer]()
-            
-            var gestureView: UIView? = view
-            
-            while let view = gestureView {
-                
-                gestures += (view.gestureRecognizers ?? [])
-                
-                gestureView = view.superview
-            }
-            
-            let touch: UITouch
-            
-            if let previousTouch = event.allTouches?.first {
-                
-                touch = previousTouch
-                
-                let newPhase: UITouchPhase
-                
-                assert(previousTouch.phase != .ended, "Did not create new event after touches ended")
-                
-                // touches ended
-                if mouseEvent == .up {
-                    
-                    newPhase = .ended
-                    
-                } else {
-                    
-                    if touch.location == screenLocation {
-                        
-                        newPhase = .stationary
-                        
-                    } else {
-                        
-                        newPhase = .moved
-                    }
-                }
-                
-                let internalTouch = UITouch.Touch(location: screenLocation,
-                                                  timestamp: timestamp,
-                                                  phase: newPhase,
-                                                  view: view,
-                                                  window: window,
-                                                  gestureRecognizers: gestures)
-                
-                touch.update(internalTouch)
-                
-            } else {
-                
-                guard mouseEvent == .down
-                    else { return nil }
-                
-                // new touch sequence
-                
-                let internalTouch = UITouch.Touch(location: screenLocation,
-                                                  timestamp: timestamp,
-                                                  phase: .began,
-                                                  view: view,
-                                                  window: window,
-                                                  gestureRecognizers: gestures)
-                
-                touch = UITouch(touch: internalTouch, inputType: .touchscreen)
-                
-                event.addTouch(touch)
-            }
-            
-            switch touch.phase {
-                
-            case .began:
-                
-                touchesEvent = event
-                
-            case .moved,
-                 .stationary:
-                
-                touchesEvent?.timestamp = timestamp
-                
-            case .ended,
-                 .cancelled:
-                
-                touchesEvent = nil
-            }
-            
-            return event
-            
+			return eventForPress(event: mouseEvent, at: screenLocation, time: timestamp);
+			
+			
+		case let .mouse(mouseEvent, screenLocation):
+			return eventForPress(event: mouseEvent, at: screenLocation, time: timestamp);
+			
         case let .mouseWheel(translation):
             
             let event = UIWheelEvent(timestamp: timestamp, translation: translation)
@@ -177,6 +79,112 @@ internal final class UIEventEnvironment {
             return nil
         }
     }
+	
+	private func eventForPress(event mouseEvent: IOHIDEvent.ScreenInputEvent, at screenLocation: CGPoint, time timestamp: Double) -> UIEvent? {
+		let event: UITouchesEvent
+		
+		if let currentEvent = touchesEvent {
+			
+			event = currentEvent
+			
+		} else {
+			
+			
+			event = UITouchesEvent(timestamp: timestamp)
+		}
+		
+		// get UIView touched
+		// Only the key window can recieve touch input
+		guard let window = UIApplication.shared.keyWindow,
+			let view = window.hitTest(screenLocation, with: event)
+			else { return nil }
+		
+		// get UIGestureRecognizer touched
+		var gestures = [UIGestureRecognizer]()
+		
+		var gestureView: UIView? = view
+		
+		while let view = gestureView {
+			
+			gestures += (view.gestureRecognizers ?? [])
+			
+			gestureView = view.superview
+		}
+		
+		let touch: UITouch
+		
+		if let previousTouch = event.allTouches?.first {
+			
+			touch = previousTouch
+			
+			let newPhase: UITouchPhase
+			
+			assert(previousTouch.phase != .ended, "Did not create new event after touches ended")
+			
+			// touches ended
+			if mouseEvent == .up {
+				
+				newPhase = .ended
+				
+			} else {
+				
+				if touch.location == screenLocation {
+					
+					newPhase = .stationary
+					
+				} else {
+					
+					newPhase = .moved
+				}
+			}
+			
+			let internalTouch = UITouch.Touch(location: screenLocation,
+											  timestamp: timestamp,
+											  phase: newPhase,
+											  view: view,
+											  window: window,
+											  gestureRecognizers: gestures)
+			
+			touch.update(internalTouch)
+			
+		} else {
+			
+			guard mouseEvent == .down
+				else { return nil }
+			
+			// new touch sequence
+			
+			let internalTouch = UITouch.Touch(location: screenLocation,
+											  timestamp: timestamp,
+											  phase: .began,
+											  view: view,
+											  window: window,
+											  gestureRecognizers: gestures)
+			
+			touch = UITouch(touch: internalTouch, inputType: .touchscreen)
+			
+			event.addTouch(touch)
+		}
+		
+		switch touch.phase {
+			
+		case .began:
+			
+			touchesEvent = event
+			
+		case .moved,
+			 .stationary:
+			
+			touchesEvent?.timestamp = timestamp
+			
+		case .ended,
+			 .cancelled:
+			
+			touchesEvent = nil
+		}
+		
+		return event
+	}
     
     private func handleNonUIEvent(_ hidEvent: IOHIDEvent) {
         
@@ -196,20 +204,13 @@ internal final class UIEventEnvironment {
         case let .window(windowEvent):
             
             switch windowEvent {
-                
-            case .sizeChange:
-                
-                UIScreen.main.updateSize()
-                
-            case .focusChange:
-                
-                #if os(Linux)
-                    UIScreen.main.needsDisplay = true
-                #else
-                    break
-                #endif
-                
-            }
+            case let .sizeChange(windowId):
+				UIScreen.main.sizeChanged(id: windowId);
+            case let .focusGained(windowId):
+				UIScreen.main.focusGained(id: windowId);
+			case let .focusLost(windowId):
+				UIScreen.main.focusLost(id: windowId);
+			}
             
         default:
             

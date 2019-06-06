@@ -76,15 +76,19 @@ internal struct IOHIDEvent {
             self.data = .mouseWheel(translation)
             
         case SDL_WINDOWEVENT:
-            
+			
+			
+			
             let sdlWindowEvent = SDL_WindowEventID(rawValue: SDL_WindowEventID.RawValue(sdlEvent.window.event))
-            
+			
+			let windowId = sdlEvent.window.windowID;
+			
             let windowEvent: WindowEvent
             
             switch sdlWindowEvent {
-            case SDL_WINDOWEVENT_SIZE_CHANGED: windowEvent = .sizeChange
-            case SDL_WINDOWEVENT_FOCUS_GAINED,
-                 SDL_WINDOWEVENT_FOCUS_LOST: windowEvent = .focusChange
+			case SDL_WINDOWEVENT_SIZE_CHANGED: windowEvent = .sizeChange(windowId: Int(windowId));
+			case SDL_WINDOWEVENT_FOCUS_GAINED: windowEvent = .focusGained(windowId: Int(windowId));
+			case SDL_WINDOWEVENT_FOCUS_LOST: windowEvent = .focusLost(windowId: Int(windowId));
             default: return nil
             }
             
@@ -177,8 +181,9 @@ internal extension IOHIDEvent {
     
     enum WindowEvent {
         
-        case sizeChange
-        case focusChange
+		case sizeChange(windowId: Int)
+		case focusGained(windowId: Int)
+		case focusLost(windowId: Int)
     }
     
     enum KeyState {

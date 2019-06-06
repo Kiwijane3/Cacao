@@ -34,8 +34,29 @@ open class UIView: UIResponder {
     
     /// Initializes and returns a newly allocated view object with the specified frame rectangle.
     public init(frame: CGRect) {
-        
-        super.init()
+		
+		super.init()
+		
+		try! self.leftAnchor = NSLayoutXAxisAnchor(for: .left, on: self);
+		try! self.rightAnchor = NSLayoutXAxisAnchor(for: .right, on: self);
+		try! self.topAnchor = NSLayoutYAxisAnchor(for: .top, on: self);
+		try! self.bottomAnchor = NSLayoutYAxisAnchor(for: .bottom, on: self);
+		try! self.leadingAnchor = NSLayoutXAxisAnchor(for: .leading, on: self);
+		try! self.trailingAnchor = NSLayoutXAxisAnchor(for: .trailing, on: self);
+		try! self.widthAnchor = NSLayoutDimension(for: .width, on: self);
+		try! self.heightAnchor = NSLayoutDimension(for: .height, on: self);
+		try! self.centerXAnchor = NSLayoutXAxisAnchor(for: .centerX, on: self);
+		try! self.centerYAnchor = NSLayoutYAxisAnchor(for: .centerY, on: self);
+		try! self.lastBaselineAnchor = NSLayoutYAxisAnchor(for: .lastBaseline, on: self);
+		try! self.firstBaselineAnchor = NSLayoutYAxisAnchor(for: .firstBaseline, on: self);
+		try! self.leftMarginAnchor = NSLayoutXAxisAnchor(for: .leftMargin, on: self);
+		try! self.rightMarginAnchor = NSLayoutXAxisAnchor(for: .rightMargin, on: self);
+		try! self.topMarginAnchor = NSLayoutYAxisAnchor(for: .topMargin, on: self);
+		try! self.bottomMarginAnchor = NSLayoutYAxisAnchor(for: .bottomMargin, on: self);
+		try! self.leadingMarginAnchor = NSLayoutXAxisAnchor(for: .leadingMargin, on: self);
+		try! self.trailingMarginAnchor = NSLayoutXAxisAnchor(for: .trailingMargin, on: self);
+		try! centerXWithinMarginsAnchor = NSLayoutXAxisAnchor(for: .centerXWithinMargins, on: self);
+		try! centerYWithinMarginsAnchor = NSLayoutYAxisAnchor(for: .centerYWithinMargins, on: self);
         
         self.frame = frame
     }
@@ -55,6 +76,34 @@ open class UIView: UIResponder {
     ///
     /// The default value is `nil`, which results in a transparent background color.
     public final var backgroundColor: UIColor? { didSet { setNeedsDisplay() } }
+	
+	/// The color of this view's border. The default value is nil, which results in no border being drawn.
+	public final var borderColor: UIColor? {
+		didSet {
+			// If we change from drawing a border to not drawing a border, or vice versa, set the borderwidth to reflect the presence of a border.
+			if borderColor != nil && oldValue == nil {
+				borderWidth = 1;
+			} else if borderColor == nil {
+				borderWidth = 0;
+			}
+			setNeedsDisplay();
+		}
+	}
+	
+	/// The rounding to use when drawing this view's background and border. By default, it is 0.0, which leads to a square background.
+	public final var borderRadius: CGFloat = 0.0 {
+		didSet {
+			setNeedsDisplay();
+		}
+	}
+	
+	public final var borderWidth: CGFloat = 0 {
+		didSet {
+			setNeedsDisplay();
+		}
+	}
+	
+	
     
     /// A Boolean value that determines whether the view is hidden.
     ///
@@ -217,13 +266,15 @@ open class UIView: UIResponder {
     open var frame: CGRect {
         get { return _frame }
         set {
-            let oldValue = _bounds
-            _frame = newValue
+			// Automatically resize the bounds to accommodate the entire frame.
+            let oldBounds = _bounds
             _bounds.size = newValue.size
-            boundsDidChange(from: oldValue, to: newValue)
+			boundsDidChange(from: oldBounds, to: _bounds);
+			animationRecordingTarget?.recordFrameChange(on: self, from: _frame, to: newValue);
+			_frame = newValue;
         }
     }
-    private var _frame = CGRect()
+	private var _frame = CGRect();
     
     /// The bounds rectangle, which describes the view’s location and size in its own coordinate system.
     ///
@@ -255,15 +306,9 @@ open class UIView: UIResponder {
         
         // bounds changed
         guard oldBounds != newBounds else { return }
-        
-        // FIXME: Do the docs state this happens?
-        setNeedsLayout()
-        
-        // Autoresize subviews
-        if autoresizesSubviews, oldBounds.size != newBounds.size {
-            
-            subviews.forEach { $0.frame.resize($0.autoresizingMask, containerSize: (oldBounds.size, newBounds.size)) }
-        }
+		
+		setNeedsLayout();
+		
     }
     
     /// The center of the frame.
@@ -291,6 +336,15 @@ open class UIView: UIResponder {
     public final var transform: CGAffineTransform = .identity {
         didSet { /* TODO */ }
     }
+	
+	// MARK: - Managing View margins and safe areas.
+	
+	public var layoutMargins: UIEdgeInsets = UIEdgeInsets() {
+		didSet {
+			// Makes sense that if the margins change, you redo the layout, since autolayout may be based on margins.
+			setNeedsLayout();
+		}
+	}
     
     // MARK: - Managing the View Hierarchy
     
@@ -517,7 +571,78 @@ open class UIView: UIResponder {
         
         return false
     }
-    
+	
+	// MARK: - Storing the layout constraints.
+	
+	/// The constraints held by the view.
+	public var constraints: [NSLayoutConstraint] = [];
+	
+	public func addConstraint(_ constraint: NSLayoutConstraint) {
+		constraints.append(constraint);
+		setNeedsLayout();
+	}
+	
+	public func addConstraints(_ constraints: [NSLayoutConstraint]) {
+		self.constraints.append(contentsOf: constraints)
+		setNeedsLayout();
+	}
+	
+	public func removeConstraint(_ constraint: NSLayoutConstraint) {
+		self.constraints.removeAll(where: { (element) -> Bool in
+			return element === constraint;
+		});
+	}
+	
+	public func removeConstraints(_ constraints: [NSLayoutConstraint]) {
+		self.constraints.removeAll(where: { (viewConstraint) -> Bool in
+			return constraints.contains(where: { (removalConstraint) -> Bool in
+				return removalConstraint === viewConstraint;
+			});
+		});
+	}
+	
+	// MARK: - LayoutAnchors for the view.
+	
+	public var leftAnchor: NSLayoutXAxisAnchor! = nil;
+	
+	public var rightAnchor: NSLayoutXAxisAnchor! = nil;
+	
+	public var topAnchor: NSLayoutYAxisAnchor! = nil;
+	
+	public var bottomAnchor: NSLayoutYAxisAnchor! = nil;
+	
+	public var leadingAnchor: NSLayoutXAxisAnchor! = nil;
+	
+	public var trailingAnchor: NSLayoutXAxisAnchor! = nil;
+	
+	public var widthAnchor: NSLayoutDimension! = nil;
+	
+	public var heightAnchor: NSLayoutDimension! = nil;
+	
+	public var centerXAnchor: NSLayoutXAxisAnchor! = nil;
+	
+	public var centerYAnchor: NSLayoutYAxisAnchor! = nil;
+	
+	public var lastBaselineAnchor: NSLayoutYAxisAnchor! = nil;
+	
+	public var firstBaselineAnchor: NSLayoutYAxisAnchor! = nil;
+	
+	public var leftMarginAnchor: NSLayoutXAxisAnchor! = nil;
+	
+	public var rightMarginAnchor: NSLayoutXAxisAnchor! = nil;
+	
+	public var topMarginAnchor: NSLayoutYAxisAnchor! = nil;
+	
+	public var bottomMarginAnchor: NSLayoutYAxisAnchor! = nil;
+	
+	public var leadingMarginAnchor: NSLayoutXAxisAnchor! = nil;
+	
+	public var trailingMarginAnchor: NSLayoutXAxisAnchor! = nil;
+	
+	public var centerXWithinMarginsAnchor: NSLayoutXAxisAnchor! = nil;
+	
+	public var centerYWithinMarginsAnchor: NSLayoutYAxisAnchor! = nil;
+	
     // MARK: - Configuring the Resizing Behavior
     
     /// A flag used to determine how a view lays out its content when its bounds change
@@ -551,7 +676,10 @@ open class UIView: UIResponder {
         
         // TODO: sizeToFit
     }
-    
+	
+	/// The size that will fit all of the content of the subviews, plus the view's margins.
+	public final var autoLayoutContentSize: CGSize = CGSize(width: UIViewNoIntrinsicMetric, height: UIViewNoIntrinsicMetric);
+	
     /// The natural size for the receiving view, considering only properties of the view itself.
     ///
     /// Custom views typically have content that they display of which the layout system is unaware.
@@ -561,12 +689,89 @@ open class UIView: UIResponder {
     /// because there’s no way to dynamically communicate a changed width to the
     /// layout system based on a changed height, for example.
     ///
+	/// If the view has content that is laid out by autolayout, the intrinsic content size will be automatically be set to fit this content and margins.
+	///
     /// If a custom view has no intrinsic size for a given dimension,
     /// it can use `UIViewNoIntrinsicMetric` for that dimension.
     open var intrinsicContentSize: CGSize {
-        
-        return CGSize(width: UIViewNoIntrinsicMetric, height: UIViewNoIntrinsicMetric)
+        return autoLayoutContentSize;
     }
+	
+	/// These values store the values for the compression resistance priority on both axes.
+	private var compressionResistanceX: UILayoutPriority = UILayoutPriority.defaultHigh;
+	
+	private var compressionResistanceY: UILayoutPriority = UILayoutPriority.defaultHigh;
+	
+	/// Returns the priority with which a view resists being made smaller than its intrinsic size.
+	///
+	/// The constraint-based layout system uses these priorities when determining the best layout for views that are encountering constraints that would require them to be smaller than their intrinsic size.
+	///
+	/// Subclasses should not override this method. Instead, custom views should set default values for their content on creation, typically to UILayoutPriorityDefaultLow or UILayoutPriorityDefaultHigh.a
+	/// Note: By default, this value is set to UILayoutPriority.defaultHigh;
+	public func contentCompressionResistancePriority(for axis: NSLayoutConstraint.Axis) -> UILayoutPriority {
+		switch axis {
+		case .horizontal:
+			return compressionResistanceX;
+		case .vertical:
+			return compressionResistanceY;
+		case .dimension:
+			debugPrint("contentCompressionResistancePriority(for:) was called with an axis of .dimension, which is invalid. Returning the x policy for compatibility.")
+			return compressionResistanceX;
+		}
+	}
+	
+	/// Sets the priority with which a view resists being made smaller than its intrinsic size.
+	///
+	/// Custom views should set default values for both orientations on creation, based on their content, typically to UILayoutPriorityDefaultLow or UILayoutPriorityDefaultHigh. When creating user interfaces, the layout designer can modify these priorities for specific views when the overall layout design requires different tradeoffs than the natural priorities of the views being used in the interface.
+	///
+	/// Subclasses should not override this method.
+	/// Note: The root UIView class sets this value to UILayoutPriority.defaultHigh by default.
+	public func setContentCompressionResistancePriority(_ priority: UILayoutPriority, for axis: NSLayoutConstraint.Axis) {
+		switch axis {
+		case .horizontal:
+			compressionResistanceX = priority;
+		case .vertical:
+			compressionResistanceY = priority;
+		case .dimension:
+			debugPrint("setContentCompressionResistancePriority(_:for:) was called with an axis of .dimension, which is invalid. This is a no-op");
+		}
+	}
+	
+	private var contentHuggingX: UILayoutPriority = UILayoutPriority.defaultLow;
+	
+	private var contentHuggingY: UILayoutPriority = UILayoutPriority.defaultLow;
+	
+	/// Returns the priority with which a view resists being made larger than its intrinsic size.
+	///
+	/// The constraint-based layout system uses these priorities when determining the best layout for views that are encountering constraints that would require them to be larger than their intrinsic size.
+	/// Note: The root UIView class sets this value to UILayoutPriority.defaultLowByDefault.
+	public func contentHuggingPriority(for axis: NSLayoutConstraint.Axis) -> UILayoutPriority {
+		switch axis {
+		case .horizontal:
+			return contentHuggingX;
+		case .vertical:
+			return contentHuggingY;
+		case .dimension:
+			debugPrint("contentHuggingPriority(for:) was called with .dimension as the axis. This is invalid. Returning contentHuggingX for safety.");
+			return contentHuggingX;
+		}
+	}
+	
+	/// Sets the priority with which a view resists being made larger than its intrinsic size.
+	///
+	/// Custom views should set default values for both orientations on creation, based on their content, typically to UILayoutPriorityDefaultLow or UILayoutPriorityDefaultHigh. When creating user interfaces, the layout designer can modify these priorities for specific views when the overall layout design requires different tradeoffs than the natural priorities of the views being used in the interface.
+	///
+	///Subclasses should not override this method.
+	public func setContentHuggingPriority(_ priority: UILayoutPriority, for axis: NSLayoutConstraint.Axis) {
+		switch axis {
+		case .horizontal:
+			contentHuggingX = priority;
+		case .vertical:
+			contentHuggingY = priority;
+		case .dimension:
+			debugPrint("setContentHuggingPriority(_:for:) was called with .dimension as the axis. This is invalid. This is a no-op");
+		}
+	}
     
     /// A Boolean value that determines whether the receiver automatically resizes its subviews when its bounds change.
     ///
@@ -688,7 +893,7 @@ open class UIView: UIResponder {
     /// the scale factor to trade image quality for rendering performance.
     public final var contentScaleFactor: CGFloat {
         
-        return self.window?.screen.scale ?? UIScreen.main.scale
+		return self.window?.scale ?? 1;
     }
     
     /// The backing rendering node / texture.
@@ -708,13 +913,21 @@ open class UIView: UIResponder {
             && bounds.size.width >= 1.0
             && bounds.size.height >= 1.0 // must be at least 1x1
     }
+	
+	public final var needsDisplay: Bool = true;
+	
+	public final func setNeedsDisplay(_ rect: CGRect? = nil) {
+		
+		self.needsDisplay = true;
+		self.window?.needsDisplay = true
+	}
     
-    internal final func render(on screen: UIScreen, in rect: SDL_Rect) throws {
+	internal final func render(on window: UIWindow, in rect: SDL_Rect) throws {
         
         guard shouldRender
             else { return }
         
-        let scale = screen.scale
+        let scale = window.scale
         let nativeSize = (width: Int(bounds.size.width * scale),
                           height: Int(bounds.size.height * scale))
         
@@ -730,8 +943,8 @@ open class UIView: UIResponder {
             
         } else {
             
-            texture = try SDLTexture(renderer: screen.renderer,
-                                     format: .argb8888, // SDL_PIXELFORMAT_ARGB8888
+            texture = try SDLTexture(renderer: window.renderer,
+                                     format: SDLPixelFormat.Format(integerLiteral: UInt32(SDL_PIXELFORMAT_ARGB8888 )), // SDL_PIXELFORMAT_ARGB8888
                                      access: .streaming,
                                      width: nativeSize.width,
                                      height: nativeSize.height)
@@ -740,32 +953,37 @@ open class UIView: UIResponder {
             
             // cache for reuse if view size isn't changed
             self.texture = texture
+			needsDisplay = true;
         }
         
-        // unlock and modify texture
+		// Only redraw the texture if needsDisplay is true or the previous texture has been invalidated (In which case needsDisplay should be true to avoid unnecessary memory use.)
+		if needsDisplay {
         try texture.withUnsafeMutableBytes {
             
-            let surface = try Cairo.Surface.Image(mutableBytes: $0.assumingMemoryBound(to: UInt8.self),
-                                                   format: .argb32,
-                                                   width: nativeSize.width,
-                                                   height: nativeSize.height,
-                                                   stride: $1)
-            
-            // reset memory
-            memset($0, 0, surface.stride * surface.height)
-            
-            let context = try! CGContext(surface: surface, size: bounds.size)
-            context.scaleBy(x: scale, y: scale)
-            
-            // CoreGraphics drawing
-            draw(in: context)
-            
-            /// flush surface
-            surface.flush()
-            surface.finish()
+				let surface = try Cairo.Surface.Image(mutableBytes: $0.assumingMemoryBound(to: UInt8.self),
+													   format: .argb32,
+													   width: nativeSize.width,
+													   height: nativeSize.height,
+													   stride: $1)
+			
+				// reset memory
+				memset($0, 0, surface.stride * surface.height)
+			
+				let context = try! CGContext(surface: surface, size: bounds.size)
+				context.shouldAntialias = true;
+				context.scaleBy(x: scale, y: scale)
+			
+				// CoreGraphics drawing
+				draw(in: context)
+			
+				/// flush surface
+				surface.flush()
+				surface.finish()
+			}
         }
+			
         
-        try screen.renderer.copy(texture, destination: rect)
+        try window.renderer.copy(texture, destination: rect)
     }
     
     internal func draw(in context: Silica.CGContext) {
@@ -773,19 +991,23 @@ open class UIView: UIResponder {
         UIGraphicsPushContext(context)
         
         // draw background color
-        context.fillColor = backgroundColor?.cgColor ?? CGColor.clear
-        context.addRect(bounds)
-        context.fillPath()
+		let background = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: borderWidth, y: borderWidth), size: frame.size - (borderWidth * 2)), cornerRadius: borderRadius);
+		UIColor.clear.set();
+		backgroundColor?.setFill();
+		borderColor?.setStroke();
+		context.lineWidth = borderWidth;
+		background.fill();
+		background.stroke();
         
         // apply alpha
-        context.setAlpha(alpha)
+		context.setAlpha(alpha)
         
-        // draw rect
+        // draw content
         draw(bounds)
         
         UIGraphicsPopContext()
     }
-    
+	
     // MARK: - Layout
     
     /// This view is the main view of the specified view controller.
@@ -793,7 +1015,7 @@ open class UIView: UIResponder {
     
     /// Lays out subviews.
     ///
-    /// If contraints are availible, the default implementation uses any constraints you have set
+    /// If contraints are available, the default implementation uses any constraints you have set
     /// to determine the size and position of any subviews.
     /// Otherwise, the default implementation of this method does nothing.
     ///
@@ -806,8 +1028,15 @@ open class UIView: UIResponder {
     /// If you want to force a layout update, call the `setNeedsLayout()` method instead
     /// to do so prior to the next drawing update.
     /// If you want to update the layout of your views immediately, call the `layoutIfNeeded()` method.
+	/// TODO: Calculate the constraints here.
     @inline(__always)
-    open func layoutSubviews() { }
+    open func layoutSubviews() {
+		
+		if constraints.count > 0 {
+			debugPrint("Using constraint-based layout for view \(self)");
+			autoLayout();
+		}
+	}
     
     /// Tells the view that a subview was added.
     ///
@@ -846,7 +1075,9 @@ open class UIView: UIResponder {
     /// Tells the view that its window object changed.
     @inline(__always)
     open func didMoveToWindow() { }
-    
+	
+	public var needsLayout: Bool = false;
+	
     /// Invalidates the current layout of the receiver and triggers a layout update during the next update cycle.
     ///
     /// Call this method on your application’s main thread when you want to adjust the layout of a view’s subviews.
@@ -856,8 +1087,8 @@ open class UIView: UIResponder {
     /// This behavior allows you to consolidate all of your layout updates to one update cycle,
     /// which is usually better for performance.
     public final func setNeedsLayout() {
-        
-        self.window?.screen.needsLayout = true
+		self.needsLayout = true;
+        self.window?.needsLayout = true
     }
     
     /// Lays out the subviews immediately.
@@ -868,11 +1099,15 @@ open class UIView: UIResponder {
     public final func layoutIfNeeded() {
         
         viewController?.viewWillLayoutSubviews()
-        layoutSubviews()
-        subviews.forEach { $0.layoutIfNeeded() }
+		subviews.forEach { $0.layoutIfNeeded() }
+		if needsLayout {
+			layoutSubviews();
+			needsLayout = false;
+		}
+		subviews.forEach { $0.layoutIfNeeded() }
         viewController?.viewDidLayoutSubviews()
     }
-    
+	
     /// Returns the farthest descendant of the receiver in the view hierarchy (including itself) that contains a specified point.
     ///
     /// - Note: This method ignores view objects that are hidden or have user interaction disabled.
@@ -907,11 +1142,6 @@ open class UIView: UIResponder {
         
         return (point.x >= rect.minX && point.x <= rect.maxX)
             && (point.y >= rect.minY && point.y <= rect.maxY)
-    }
-    
-    public final func setNeedsDisplay(_ rect: CGRect? = nil) {
-        
-        self.window?.screen.needsDisplay = true
     }
     
     // MARK: - Managing Gesture Recognizers
@@ -985,70 +1215,37 @@ open class UIView: UIResponder {
     }
     
     // MARK: - Animating Views with Block Objects
-    
-    internal private(set) static var animationDuration: TimeInterval?
-    
-    internal static var animations = [Animation]()
-    
-    /// Animate changes to one or more views using the specified duration.
-    public class func animate(withDuration duration: TimeInterval, animations: @escaping () -> ()) {
-        
-        guard duration > 0 else { animations(); return }
-        
-        UIView.animationDuration = duration
-        
-        animations()
-        
-        UIView.animationDuration = nil
-    }
+	
+	// The target animation to record animatable changes to.
+	private var animationRecordingTarget: UIAnimation?;
+	
+	private var isRecordingAnimation: Bool {
+		get {
+			return animationRecordingTarget != nil;
+		}
+	}
+	
+	// Makes this view and all recursive subviews begin recording state changes into the given target animations.
+	public func beginRecordingAnimation(into target: UIAnimation) {
+		animationRecordingTarget = target;
+		for subview in subviews {
+			subview.beginRecordingAnimation(into: target);
+		}
+	}
+	
+	// Stops animation recording for this view and all recursive subviews.
+	public func stopRecordingAnimation() {
+		animationRecordingTarget = nil;
+		for subview in subviews {
+			subview.stopRecordingAnimation();
+		}
+	}
+	
 }
 
 // MARK: - Supporting Types
 
 public let UIViewNoIntrinsicMetric: CGFloat = -1.0
-
-// MARK: - Internal Animations
-
-internal class Animation {
-    
-    let frameChange: () -> Bool
-    
-    init<View: UIView>(view: View,
-                       duration: TimeInterval,
-                       value: (start: CGFloat, end: CGFloat),
-                       keyPath: ReferenceWritableKeyPath<View, CGFloat>) {
-        
-        let startDate = Date()
-        
-        let delta = value.end - value.start
-        
-        let weakView = WeakReference(view)
-        
-        self.frameChange = {
-            
-            guard let view = weakView.value
-                else { return false }
-            
-            let now = Date()
-            
-            var secondsLeft = duration - now.timeIntervalSince(startDate)
-            
-            if secondsLeft < 0 {
-                
-                secondsLeft = 0
-            }
-            
-            let progress = 1 - CGFloat(secondsLeft / duration)
-            
-            let currentValue = value.start + (progress * delta)
-            
-            //view[keyPath: keyPath] = currentValue
-            keyPath.set(view, currentValue)
-            
-            return progress < 1.0
-        }
-    }
-}
 
 final class ReferenceWritableKeyPath<Value, Property> {
     
@@ -1079,7 +1276,7 @@ final class ReferenceWritableKeyPath<Value, Property> {
             if let cachedTexture = self.texture,
                 let screen = self.window?.screen {
                 
-                let scale = screen.scale
+				let scale = window?.scale ?? 1;
                 let nativeSize = (width: Int(bounds.size.width * scale),
                                   height: Int(bounds.size.height * scale))
                 
@@ -1102,5 +1299,6 @@ final class ReferenceWritableKeyPath<Value, Property> {
     }
     
 #endif
+
 
 

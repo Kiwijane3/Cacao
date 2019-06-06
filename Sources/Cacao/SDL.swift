@@ -23,40 +23,23 @@ internal func SDLEventRun() {
     
     defer { SDL.quit() }
     
-    let options = UIApplication.shared.options
-    
     let delegate = UIApplication.shared.delegate!
     
-    var windowOptions: BitMaskOptionSet<SDLWindow.Option> = [.allowRetina, .opengl]
-    
-    if options.canResizeWindow {
-        
-        windowOptions.insert(.resizable)
-    }
-    
-    let preferredSize = options.windowSize
-    
-    let initialWindowSize = preferredSize // can we query for screen resolution?
-    
-    let window = try! SDLWindow(title: options.windowName,
-                               frame: (x: .centered, y: .centered,
-                                       width: Int(initialWindowSize.width),
-                                       height:  Int(initialWindowSize.height)),
-                               options: windowOptions)
-    
     // create main UIScreen
-    let screen = try! UIScreen(window: window, size: initialWindowSize)
+    let screen = try! UIScreen()
     UIScreen._main = screen
-    
-    let framesPerSecond = screen.maximumFramesPerSecond
-    
-    let launchOptions = [UIApplicationLaunchOptionsKey: Any]()
+	
+	let options = _UIApp.options;
+	
+	let launchOptions = [UIApplicationLaunchOptionsKey: Any]();
+	
+	let framesPerSecond = 60;
     
     guard delegate.application(UIApplication.shared, willFinishLaunchingWithOptions: launchOptions),
         delegate.application(UIApplication.shared, didFinishLaunchingWithOptions: launchOptions)
         else { options.log?("Application delegate could not launch app"); return }
     
-    assert(screen.keyWindow?.rootViewController != nil, "Application windows are expected to have a root view controller at the end of application launch")
+    assert(screen.keyWindow?.windowController?.rootViewController != nil, "Application windows are expected to have a root view controller at the end of application launch")
     
     defer { delegate.applicationWillTerminate(UIApplication.shared) }
     

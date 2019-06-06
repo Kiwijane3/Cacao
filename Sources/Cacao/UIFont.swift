@@ -7,7 +7,9 @@
 //
 
 import struct Foundation.CGFloat
+import struct Foundation.CGSize
 import Silica
+import struct Cairo.FontIndex
 
 public final class UIFont: Equatable {
     
@@ -39,6 +41,9 @@ public final class UIFont: Equatable {
         self.cgFont = cgFont
         self.pointSize = size
     }
+	
+	
+	
 }
 
 // MARK: - Extensions
@@ -54,6 +59,23 @@ public extension UIFont {
         
         return UIFont(name: "HelveticaNeu-Bold", size: size)!
     }
+}
+
+public extension UIFont {
+	
+	func glyphs(for input: String) -> [FontIndex] {
+		let scaledFont = self.cgFont.scaledFont;
+		return input.unicodeScalars.map({scalar in scaledFont[UInt(scalar.value)]});
+	}
+	
+	func advances(for input: String, textMatrix: CGAffineTransform = .identity, characterSpacing: CGFloat = 0.0) -> [CGSize] {
+		return advances(for: glyphs(for: input), textMatrix: textMatrix, characterSpacing: characterSpacing);
+	}
+	
+	func advances(for glyphs: [FontIndex], textMatrix: CGAffineTransform = .identity, characterSpacing: CGFloat = 0.0) -> [CGSize] {
+		return cgFont.advances(for: glyphs, fontSize: pointSize, textMatrix: textMatrix, characterSpacing: characterSpacing)
+	}
+	
 }
 
 // MARK: - Equatable

@@ -87,7 +87,7 @@ open class UIViewController: UIResponder {
     
     /// Called after the controller's view is loaded into memory.
     open func viewDidLoad() { /* Subclasses should override */ }
-    
+	
     /// Loads the view controller’s view if it has not yet been loaded.
     public final func loadViewIfNeeded() {
         
@@ -173,23 +173,53 @@ open class UIViewController: UIResponder {
     /// After the animation completes, it removes the first view controller's view from the view hierarchy.
     /// This method is only intended to be called by an implementation of a custom container view controller.
     /// If you override this method, you must call super in your implementation.
-    public func transition(from fromViewController: UIViewController,
-                    to toViewController: UIViewController,
-                    duration: TimeInterval,
-                    options: UIViewAnimationOptions = [],
-                    animations: (() -> Void)?,
-                    completion: ((Bool) -> Void)? = nil) {
-        
-        let animated = duration > 0
-        fromViewController.beginAppearanceTransition(false, animated: animated)
-        toViewController.beginAppearanceTransition(true, animated: animated)
-        
-        // run animations
-        
-        self.view.addSubview(toViewController.view)
-        fromViewController.view?.removeFromSuperview()
-        
-    }
+	public func transition(from fromViewController: UIViewController, to toViewController: UIViewController, duration: TimeInterval, options: UIViewAnimationOptions = [], animations: (() -> Void)?, setup: (() -> Void)? = nil, completion: ((Bool) -> Void)? = nil) {
+		// Call the appropriate transition implementation based on the parameters.
+		if duration <= 0 || animations == nil {
+			// Perform a simple unanimated transition.
+			transition(from: fromViewController, to: toViewController);
+		} else {
+			// Setup the animator.
+			let animator = UIViewPropertyAnimator(duration: duration);
+			animator.addAnimations(animations!);
+			if let setup = setup {
+				animator.addSetup(setup);
+			}
+			if let completion = completion {
+				animator.addCompletion(completion);
+			}
+			// Begin the transition using the animator.
+			self.transition(from: fromViewController, to: toViewController, withAnimator: animator);
+		}
+	}
+	
+	// Performs an unanimated transition between the two view controllers.
+	public func transition(from fromViewController: UIViewController, to toViewController: UIViewController) {
+		fromViewController.beginAppearanceTransition(false, animated: false);
+		toViewController.beginAppearanceTransition(true, animated: true);
+		self.view.addSubview(toViewController.view);
+		fromViewController.view?.removeFromSuperview();
+	}
+	
+	// Handles the view transition using a pre-defined animator. This is the underlying method for all animated view transitions: Other methods simply set up the animator and call this method.
+	public func transition(from fromViewController: UIViewController, to toViewController: UIViewController, withAnimator animator: UIViewPropertyAnimator) {
+		fromViewController.beginAppearanceTransition(false, animated: true);
+		toViewController.beginAppearanceTransition(true, animated: true);
+		// Alter the animator's completion to remove the from controller's views in addition to any other actions.
+		// Store a reference to current completion block.
+		let providedCompletion = animator.completion;
+		animator.addCompletion { (bool) in
+			// Call the original completion.
+			providedCompletion?(bool);
+			// Remove the origin view controller from the container.
+			fromViewController.view.removeFromSuperview();
+		}
+		// Add the new view controller's view to this controller's view.
+		self.view.addSubview(toViewController.view);
+		// Animate the transition.
+		animator.startAnimation();
+	}
+	
     
     /// Returns a Boolean value indicating whether appearance methods are forwarded to child view controllers.
     ///
@@ -260,9 +290,44 @@ open class UIViewController: UIResponder {
         return nil
     }
     
-    public final private(set) weak var parent: UIViewController?
-    
-    //public final var navigationController: UINavigationController?
+    public final weak var parent: UIViewController?
+	
+	public final var navigationController: UINavigationController? {
+		get {
+			var ancestor = self.parent;
+			while ancestor != nil {
+				if ancestor is UINavigationController {
+					return ancestor as! UINavigationController;
+				} else {
+					ancestor = ancestor?.parent;
+				}
+			}
+			return nil;
+		}
+	}
+	
+	public final var windowController: UIWindowController? {
+		get {
+			var ancestor = self.parent;
+			while ancestor != nil {
+				if ancestor is UIWindowController {
+					return ancestor as! UIWindowController;
+				} else {
+					ancestor = ancestor?.parent;
+				}
+			}
+			return nil;
+		}
+	}
+	
+	// MARK: - Window Bar Display.
+	
+	public var windowBarItem: UIWindowBarItem = UIWindowBarItem();
+	
+	// Informs the window controller that the window bar has been updated.
+	public func updateWindowBar() {
+		windowController?.redisplayWindowBar();
+	}
     
     //var splitViewController: UISplitViewController?
     //var tabBarController: UITabBarController?

@@ -78,7 +78,9 @@ public final class UIApplication: UIResponder {
     /// For every event you intercept, you must dispatch it by calling super`sendEvent()`
     /// after handling the event in your implementation.
     public func sendEvent(_ event: UIEvent) {
-        
+		
+		debugPrint("Received event \(event)");
+		
         self.windows.forEach { $0.sendEvent(event) }
     }
     

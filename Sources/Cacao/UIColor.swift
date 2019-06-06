@@ -33,6 +33,12 @@ public struct UIColor {
         
         self.cgColor = CGColor(red: red, green: green, blue: blue, alpha: alpha)
     }
+	
+	/// Initializes a colour based on integer values.
+	public init(red: Int, green: Int, blue: Int, alpha: CGFloat = 1.0) {
+		let divisor: CGFloat = 256;
+		self.init(red: CGFloat(red) / divisor, green: CGFloat(green) / divisor, blue: CGFloat(blue) / divisor, alpha: alpha);
+	}
     
     // MARK: - Methods
     
@@ -63,8 +69,7 @@ public struct UIColor {
     /// Sets the color of subsequent fill operations to the color that the receiver represents.
     public func setFill() {
         
-        UIGraphicsGetCurrentContext()?.fillColor = cgColor
-        UIGraphicsGetCurrentContext()?.alpha = UIGraphicsGetCurrentContext()?.alpha ?? 1 // apply alpha again
+        UIGraphicsGetCurrentContext()?.fillColor = cgColor // apply alpha again
     }
     
     /// Sets the color of subsequent stroke operations to the color that the receiver represents.
@@ -85,5 +90,10 @@ public struct UIColor {
     
     public static var black = UIColor(cgColor: CGColor.black)
     
-    public static let clear = UIColor(red: 0, green: 0, blue: 0, alpha: 0)
+	public static let clear = UIColor(cgColor: CGColor.clear)
+	
+	public static let background = UIColor(red: 236, green: 235, blue: 234);
+	
+	public static let border = UIColor(red: 200, green: 199, blue: 198);
+	
 }

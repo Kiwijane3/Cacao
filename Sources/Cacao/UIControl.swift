@@ -5,12 +5,13 @@
 //  Created by Alsey Coleman Miller on 6/7/17.
 //
 
-import class Foundation.NSNull
+import Foundation
 
 /// The base class for controls, which are visual elements that convey
 /// a specific action or intention in response to user interactions.
 open class UIControl: UIView {
-    
+
+	private typealias TargetAction = (target: AnyObject?, id: String, Action: Selector.Action, controlEvents: UIControlEvents);
     // MARK: - Configuring the Control’s Attributes
     
     /// The state of the control, specified as a bitmask value.
@@ -19,33 +20,63 @@ open class UIControl: UIView {
     /// A control can be in more than one state at a time.
     /// For example, it can be focused and highlighted at the same time.
     /// You can also get the values for individual states using the properties of this class.
-    open var state: UIControlState { return .normal }
-    
+	open var state: UIControlState { return .normal }
+	
     // MARK: - Accessing the Control’s Targets and Actions
     
     /// Target-Action pairs
-    private var targetActions = [Target: [UIControlEvents: [Selector]]]()
+	private var targetActions = [TargetAction]();
+	
+	public override init(frame: CGRect) {
+		super.init(frame: frame);
+	}
     
-    /// Associates a target object and action method with the control.
-    public func addTarget(_ target: AnyHashable?, action: Selector, for controlEvents: UIControlEvents) {
-        
-        let target = Target(target)
-
-        targetActions[target, default: [:]][controlEvents,  default: []].append(action)
+    /// Adds a target action based on the given selector. This functionality is included for compatibility with Darwin systems, and has somewhat awkward syntax. It is recommended to use the addTarget methods based on ids and closures, and this method may become deprecated in future.
+    public func addTarget(_ target: AnyObject, action selector: Selector, for controlEvents: UIControlEvents) {
+		// Convert the variables to a TargetAction and add to the action.
+		targetActions.append((target, selector.name, selector.action, controlEvents));
     }
+	
+	/// Registers an action to be called on the given control events. Target and id are used for identifying actions to allow for easy removal; Target represents the object that registered the action, and id defines the specific action.
+	public func addTarget(_ target: AnyObject, id: String, action: @escaping (UIEvent?) -> (), for controlEvents: UIControlEvents) {
+		targetActions.append((target, id, { (_, _, event) in action(event) }, controlEvents));
+	}
+	
+	/// Registers an action to be called on the given control events. Id is used to identify the action for easy removal. This should be used when the registering object is unimportant.
+	public func add(withId id: String, action: @escaping (UIEvent?) -> (), for controlEvents: UIControlEvents) {
+		targetActions.append((nil, id, { (_, _, event) in action(event) }, controlEvents));
+	}
     
-    /// Stops the delivery of events to the specified target object.
-    public func removeTarget(_ target: AnyHashable?, action: Selector, for controlEvents: UIControlEvents) {
-            
-        let target = Target(target)
-        
-        guard let index = targetActions[target, default: [:]][controlEvents,  default: []].index(of: action)
-            else { return }
-        
-        targetActions[target, default: [:]][controlEvents,  default: []].remove(at: index)
+    /// Removes all targetActions with the specified target, the selector's id, and where that targetAction's control events are a subset of the parameter controlEvents. If any of these are nil, then any value will match the respective field for elimination.
+    public func removeTarget(_ target: AnyObject, action selector: Selector?, for controlEvents: UIControlEvents) {
+		targetActions = targetActions.filter { targetAction -> Bool in
+			let (elementTarget, elementId, _, elementControlEvents) = targetAction;
+			return (elementTarget === target || target == nil) && (elementId == selector?.name || selector == nil) && (controlEvents.isSuperset(of: elementControlEvents));
+		}
     }
+	
+	/// Removes all targetActions with the specified target, the specified id, and where that targetAction's control events are a subset of the parameter controlEvents. If any of these are nil, then any value will match the respective field for elimination.
+	public func removeTarget(_ target: AnyObject?, id: String?, for controlEvents: UIControlEvents) {
+		targetActions = targetActions.filter { targetAction -> Bool in
+			let (elementTarget, elementId, _, elementControlEvents) = targetAction;
+			return (elementTarget === target || target == nil) && (elementId == id || id == nil) && (controlEvents.isSuperset(of: elementControlEvents));
+		}
+	}
+	
+	/// Removes all target actions with no specified target (i.e, were registered via addTarget(withId:action:for:)), the specified id, and where their control events are a subset of the parameter controlEvents. If id is nil, all ids will be matched.
+	public func remove(withId id: String?, for controlEvents: UIControlEvents) {
+		targetActions = targetActions.filter { targetAction -> Bool in
+			let (elementTarget, elementId, _, elementControlEvents) = targetAction;
+			return (elementTarget == nil) && (elementId == id || id == nil ) && (controlEvents.isSuperset(of: elementControlEvents));
+		}
+	}
+	
+	/// Removes all targetActions from this control.
+	public func clear() {
+		targetActions = [TargetAction]();
+	}
     
-    /// Returns the actions performed on a target object when the specified event occurs.
+	/// Returns the actions performed on a target object when the specified event occurs. Note: On Cacao, this function will also contain dummy selectors representing targetActions registered without selectors, which will have the id field as the id given for that target action and a no-op action.
     ///
     /// - Parameter target: The target object—that is, an object that has an action method associated with this control.
     /// You must pass an explicit object for this method to return a meaningful result.
@@ -53,60 +84,75 @@ open class UIControl: UIView {
     /// - Parameter controlEvent: A single control event constant representing the event
     /// for which you want the list of action methods.
     /// For a list of possible constants, see `UIControlEvents`.
-    public func actions(forTarget target: AnyHashable?, forControlEvent controlEvent: UIControlEvents) -> [Selector]? {
-        
-        guard let targetValue = target
-            else { return nil }
-        
-        let target = Target(targetValue)
-        
-        return targetActions[target, default: [:]][controlEvent, default: []]
-    }
+    public func actions(forTarget target: AnyHashable?, forControlEvent controlEvent: UIControlEvents) -> [String]? {
+		return nil;
+	}
+	
+	// Returns all the ids currently in use by this control. Only available on Cacao.
+	public var allIds: [String] {
+		get {
+			return targetActions.map { targetAction in
+				let (_, id, _, _) = targetAction;
+				return id;
+			}
+		}
+	}
     
     /// Returns the events for which the control has associated actions.
     ///
     /// - Returns: A bitmask of constants indicating the events for which this control has associated actions.
     public var allControlEvents: UIControlEvents {
-        
-        return targetActions
-            .reduce([UIControlEvents](), { $0 + Array($1.value.keys) })
-            .reduce(UIControlEvents(), { $0.union($1) })
+		get {
+			return targetActions.reduce(UIControlEvents(), { events, targetAction -> UIControlEvents in
+				return events.union(targetAction.controlEvents);
+			} )
+		}
     }
     
-    /// Returns all target objects associated with the control.
+	/// Returns all target objects associated with the control. Note:  Only hashables are returned due to practical considerations around conforming to UIKit. Use of targets is preferable.
     ///
     /// - Returns: A set of all target objects associated with the control.
     /// The returned set may include one or more `NSNull` objects to indicate actions that are dispatched to the responder chain.
     public var allTargets: Set<AnyHashable> {
-        
-        let targets = targetActions.keys.map { $0.value ?? NSNull() as AnyHashable }
-        
-        return Set(targets)
+		get {
+			return Set(targetActions.compactMap({ targetAction in
+				if let target = targetAction.target as? AnyHashable {
+					return target;
+				} else {
+					 return nil
+				};
+			}));
+		}
     }
+	
+	public var targets: [AnyObject] {
+		get {
+			return targetActions.compactMap() { targetAction in
+				return targetAction.target;
+			}
+		}
+	}
+	
+	public func has(target: AnyObject) -> Bool {
+		for (actionTarget, _, _, _) in targetActions {
+			if actionTarget === target {
+				return true;
+			}
+		}
+		return false;
+	}
     
-    // MARK: - Triggering Actions
-    
-    /// Calls the specified action method.
-    public func sendAction(_ action: Selector, to target: AnyHashable?, for event: UIEvent?) {
-        
-        let target = target ?? (self.next ?? NSNull()) as AnyHashable
-        
-        action.action(target, self, event)
-    }
-    
-    /// Calls the action methods associated with the specified events.
+    /// Calls the action methods where controlEvents. is a superset of action's controlEvents.
     public func sendActions(for controlEvents: UIControlEvents) {
-        
-        for (target, eventActions) in targetActions {
-            
-            let actions = eventActions[controlEvents, default: []]
-            
-            for action in actions {
-                
-                sendAction(action, to: target.value, for: nil)
-            }
-        }
+		for (target, id, action, actionControlEvents) in targetActions {
+			if controlEvents.isSuperset(of: actionControlEvents) {
+				action(target, nil, nil);
+			}
+		}
     }
+	
+	open func onStateChanged() {}
+	
 }
 
 private extension UIControl {
@@ -133,9 +179,9 @@ private extension UIControl {
 }
 
 /// Cacao extension since Swift doesn't support ObjC runtime (on non-Darwin platforms)
-public struct Selector: Hashable {
+public class Selector: Hashable, Equatable {
     
-    public typealias Action = (_ target: AnyHashable, _ sender: AnyObject?, _ event: UIEvent?) -> ()
+    public typealias Action = (_ target: Any?, _ sender: AnyObject?, _ event: UIEvent?) -> ()
     
     public let action: Action
     
@@ -156,6 +202,7 @@ public struct Selector: Hashable {
         
         return lhs.name == rhs.name
     }
+	
 }
 
 /// Constants describing the state of a control.
@@ -164,9 +211,15 @@ public struct Selector: Hashable {
 /// Controls can be configured differently based on their state.
 /// For example, a `UIButton` object can be configured to display one image
 /// when it is in its normal state and a different image when it is highlighted.
-public struct UIControlState: OptionSet {
+public struct UIControlState: OptionSet, Hashable {
     
     public let rawValue: Int
+	
+	public var hashValue: Int {
+		get {
+			return rawValue;
+		}
+	}
     
     public init(rawValue: Int = 0) {
         

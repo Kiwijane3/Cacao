@@ -156,8 +156,7 @@ open class UIResponder: NSObject {
     
     /// Tells this object when a physical button is first pressed.
     ///
-    /// - Parameter presses: A set of `UIPress` instances that represent the new presses that occurred.
-    /// The phase of each press is set to began.
+    /// - Parameter press: A UIPress object indicating the new button that has been pressed
     ///
     /// - Parameter event: The event to which the presses belong.
     ///
@@ -166,27 +165,23 @@ open class UIResponder: NSObject {
     ///
     /// The default implementation of this method forwards the message up the responder chain.
     /// When creating your own subclasses, call super to forward any events that you do not handle yourself.
-    open func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        
-        next?.pressesBegan(presses, with: event)
+    open func pressBegan(_ press: UIPress, with event: UIPressesEvent?) {
+        next?.pressBegan(press, with: event)
     }
     
     /// Tells this object when a value associated with a press has changed.
-    open func pressesChanged(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        
-        next?.pressesChanged(presses, with: event)
+    open func pressChanged(_ press: UIPress, with event: UIPressesEvent?) {
+        next?.pressChanged(press, with: event)
     }
     
     /// Tells the object when a button is released.
-    open func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        
-        next?.pressesEnded(presses, with: event)
+    open func pressEnded(_ press: UIPress, with event: UIPressesEvent?) {
+        next?.pressEnded(press, with: event)
     }
     
     /// Tells this object when a system event (such as a low-memory warning) cancels a press event.
-    open func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        
-        next?.pressesCancelled(presses, with: event)
+    open func pressCancelled(_ press: UIPress, with event: UIPressesEvent?) {
+        next?.pressCancelled(press, with: event)
     }
     
     // MARK: - Responding to Remote-Control Events

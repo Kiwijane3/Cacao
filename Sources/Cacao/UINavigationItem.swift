@@ -32,7 +32,6 @@ public final class UINavigationItem {
     
     /// Sets whether the back button is hidden, optionally animating the transition.
     public func setHidesBackButton(_ hidesBackButton: Bool, animated: Bool) {
-        
-        
+	
     }
 }

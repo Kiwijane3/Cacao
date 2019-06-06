@@ -41,6 +41,14 @@ public struct UIEdgeInsets {
         self.right = right
         self.top = top
     }
+	
+	public init(vertical: CGFloat = 0, horizontal: CGFloat = 0) {
+		self.top = vertical;
+		self.bottom = vertical;
+		self.left = horizontal;
+		self.right = horizontal;
+	}
+	
 }
 
 // MARK: - Equatable
@@ -72,4 +80,14 @@ public func UIEdgeInsetsInsetRect(_ rect: CGRect, _ insets: UIEdgeInsets) -> CGR
     rect.size.height -= (insets.top + insets.bottom)
     
     return rect
+}
+
+public extension UIEdgeInsets {
+	
+	public var size: CGSize {
+		get {
+			return CGSize(width: left + right, height: top + bottom);
+		}
+	}
+	
 }
