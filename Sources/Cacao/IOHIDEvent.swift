@@ -41,10 +41,11 @@ internal struct IOHIDEvent {
             default: return nil
             }
             
-            let screenLocation = CGPoint(x: CGFloat(sdlEvent.button.x),
+			// The sdl event components are given relative to the current window, not the screen.
+            let windowLocation = CGPoint(x: CGFloat(sdlEvent.button.x),
                                          y: CGFloat(sdlEvent.button.y))
             
-            self.data = .touch(screenEvent, screenLocation)
+            self.data = .touch(screenEvent, windowLocation);
             
         case SDL_MOUSEBUTTONDOWN,
              SDL_MOUSEBUTTONUP,
@@ -63,10 +64,11 @@ internal struct IOHIDEvent {
             default: return nil
             }
             
-            let screenLocation = CGPoint(x: CGFloat(sdlEvent.button.x),
+			// As mentioned above, this is relative to the window.
+            let windowLocation = CGPoint(x: CGFloat(sdlEvent.button.x),
                                          y: CGFloat(sdlEvent.button.y))
             
-            self.data = .mouse(screenEvent, screenLocation)
+            self.data = .mouse(screenEvent, windowLocation);
             
         case SDL_MOUSEWHEEL:
             

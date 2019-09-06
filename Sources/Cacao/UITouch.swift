@@ -11,11 +11,14 @@ import Silica
 /// An object representing the location, size, movement, and force of a touch occurring on the screen.
 public final class UITouch: NSObject {
     
-    internal init(touch: Touch, inputType: InputType) {
+    internal init(touch: Touch, inputType: InputType, view: UIView?, gestureRecognizers: [UIGestureRecognizer]) {
         
         self.touches = [touch]
         self.inputType = inputType
-        
+		self.window = view.window;
+        self.view = view;
+		self.gestureRecognizers = gestureRecognizers
+		
         super.init()
     }
     
@@ -57,13 +60,13 @@ public final class UITouch: NSObject {
     public let inputType: InputType
     
     /// The view to which touches are being delivered, if any.
-    public var view: UIView? { return touches.last?.view }
+    public var view: UIView?
     
     /// The window in which the touch initially occurred.
-    public var window: UIWindow? { return touches.last?.window }
+    public var window: UIWindow?
     
     /// The gesture recognizers that are receiving the touch object.
-    public var gestureRecognizers: [UIGestureRecognizer]? { return touches.last?.gestureRecognizers }
+    public var gestureRecognizers: [UIGestureRecognizer]?
     
     /// The phase of the touch.
     public var phase: UITouchPhase { return touches.last!.phase }
@@ -150,23 +153,12 @@ internal extension UITouch {
         /// The phase of the touch.
         let phase: UITouchPhase
         
-        /// The view to which touches are being delivered, if any.
-        let view: UIView
-        
-        /// The window in which the touch initially occurred.
-        let window: UIWindow
-        
-        /// The gesture recognizers that are receiving the touch object.
-        let gestureRecognizers: [UIGestureRecognizer]
-        
-        init(location: CGPoint, timestamp: TimeInterval, phase: UITouchPhase, view: UIView, window: UIWindow, gestureRecognizers: [UIGestureRecognizer]) {
+        init(location: CGPoint, timestamp: TimeInterval, phase: UITouchPhase) {
             
             self.location = location
             self.timestamp = timestamp
             self.phase = phase
             self.view = view
-            self.window = window
-            self.gestureRecognizers = gestureRecognizers
         }
     }
 }
