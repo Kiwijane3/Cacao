@@ -39,18 +39,18 @@ internal final class UIEventEnvironment {
     internal func handleEventQueue() {
 		
         for hidEvent in eventQueue {
-			
             guard let event = event(for: hidEvent)
                 else { handleNonUIEvent(hidEvent); continue }
-            
-            application.sendEvent(event)
+           // Dispatch non-touch events immediately. Since touch events use a single event for all touches, that is only dispatched once to avoid multiple calls.
+           application.sendEvent(event)
         }
-        
         if let hidEvent = eventQueue.first {
-            
             print("Processed \(eventQueue.count) events (\(SDL_GetTicks() - UInt32(hidEvent.timestamp))ms)")
         }
-        
+		// Dispatch touch event.
+        application.sendEvent(touchesEvent);
+		// Remove 
+		cleanStoredEvents();
         // clear queue
         eventQueue.removeAll()
     }
@@ -61,12 +61,12 @@ internal final class UIEventEnvironment {
         
         switch hidEvent.data {
             
-        case let .touch(mouseEvent, screenLocation):
-			return eventForPress(event: mouseEvent, at: screenLocation, time: timestamp);
+        case let .touch(mouseEvent, windowLocation):
+			return eventForPress(event: mouseEvent, at: windowLocation, time: timestamp);
 			
 			
-		case let .mouse(mouseEvent, screenLocation):
-			return eventForPress(event: mouseEvent, at: screenLocation, time: timestamp);
+		case let .mouse(mouseEvent, windowLocation):
+			return eventForPress(event: mouseEvent, at: windowLocation, time: timestamp);
 			
         case let .mouseWheel(translation):
             
@@ -80,109 +80,46 @@ internal final class UIEventEnvironment {
         }
     }
 	
-	private func eventForPress(event mouseEvent: IOHIDEvent.ScreenInputEvent, at screenLocation: CGPoint, time timestamp: Double) -> UIEvent? {
+	private func eventForPress(event mouseEvent: IOHIDEvent.ScreenInputEvent, at windowLocation: CGPoint, time timestamp: Double) -> UIEvent? {
+		
+		// Establish the event, either retrieving it or creating a new one.
 		let event: UITouchesEvent
 		
 		if let currentEvent = touchesEvent {
-			
 			event = currentEvent
-			
 		} else {
-			
-			
 			event = UITouchesEvent(timestamp: timestamp)
 		}
 		
-		// get UIView touched
-		// Only the key window can recieve touch input
-		guard let window = UIApplication.shared.keyWindow,
-			let view = window.hitTest(screenLocation, with: event)
-			else { return nil }
+		// Establish the relevant touch, either by retrieving or creating it.
+		let touch: UITouch;
 		
-		// get UIGestureRecognizer touched
-		var gestures = [UIGestureRecognizer]()
-		
-		var gestureView: UIView? = view
-		
-		while let view = gestureView {
-			
-			gestures += (view.gestureRecognizers ?? [])
-			
-			gestureView = view.superview
-		}
-		
-		let touch: UITouch
-		
-		if let previousTouch = event.allTouches?.first {
-			
-			touch = previousTouch
-			
-			let newPhase: UITouchPhase
-			
-			assert(previousTouch.phase != .ended, "Did not create new event after touches ended")
-			
-			// touches ended
+		// If this touch is contiguous with a live touch sequence, then update that touch sequence. Currently, the code will always update the first touch sequence, and assumes that touch is live, as an event with one ended event will be cleared at the end of the dispatch cycle. This is sufficient for mouse and single touch, but does not support multi-touch. To support multi-touch, a function that identifies which live touch sequence is appropriate.
+		if let touch = event.touches.first {
+			assert(touch.phase != .ended, "Did not create new event after touches ended")
+			let newPhase: UITouchPhase;
 			if mouseEvent == .up {
-				
 				newPhase = .ended
-				
 			} else {
-				
 				if touch.location == screenLocation {
-					
 					newPhase = .stationary
-					
 				} else {
-					
 					newPhase = .moved
 				}
 			}
-			
-			let internalTouch = UITouch.Touch(location: screenLocation,
-											  timestamp: timestamp,
-											  phase: newPhase,
-											  view: view,
-											  window: window,
-											  gestureRecognizers: gestures)
-			
+			let nextTouch = UITouch.Touch(location: screenLocation, timestamp: timestamp, phase: newPhase);
 			touch.update(internalTouch)
-			
 		} else {
 			
-			guard mouseEvent == .down
-				else { return nil }
-			
-			// new touch sequence
-			
-			let internalTouch = UITouch.Touch(location: screenLocation,
-											  timestamp: timestamp,
-											  phase: .began,
-											  view: view,
-											  window: window,
-											  gestureRecognizers: gestures)
-			
-			touch = UITouch(touch: internalTouch, inputType: .touchscreen)
-			
+			guard mouseEvent == .down else { 
+				debugPrint("Attempted to process new touch, but mouseEvent was not .down");
+				return nil; 
+			}
+			// Create a new touch and add it to the event.
+			let internalTouch = UITouch.Touch(location: screenLocation, timestamp: timestamp, phase: .began);
+			let touch = UITouch(touch: internalTouch, inputType: .touchscreen);
 			event.addTouch(touch)
 		}
-		
-		switch touch.phase {
-			
-		case .began:
-			
-			touchesEvent = event
-			
-		case .moved,
-			 .stationary:
-			
-			touchesEvent?.timestamp = timestamp
-			
-		case .ended,
-			 .cancelled:
-			
-			touchesEvent = nil
-		}
-		
 		return event
 	}
     
