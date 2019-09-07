@@ -1,0 +1,43 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "Cairo",
+        "repositoryURL": "https://github.com/Kiwijane3/Cairo.git",
+        "state": {
+          "branch": null,
+          "revision": "d017bc70812f0bf827bb2beba15353044e31b394",
+          "version": "1.2.5"
+        }
+      },
+      {
+        "package": "Cassowary",
+        "repositoryURL": "https://github.com/Kiwijane3/Cassowary.git",
+        "state": {
+          "branch": null,
+          "revision": "9cdf6f7651d17d5acfc4c6e4e7a084fa4db7e592",
+          "version": "2.0.1"
+        }
+      },
+      {
+        "package": "SDL",
+        "repositoryURL": "https://github.com/Kiwijane3/SDL.git",
+        "state": {
+          "branch": null,
+          "revision": "79e193ee7ad11b76f5863205f4e2892f9369eed3",
+          "version": "1.1.0"
+        }
+      },
+      {
+        "package": "Silica",
+        "repositoryURL": "https://github.com/Kiwijane3/Silica.git",
+        "state": {
+          "branch": null,
+          "revision": "7877dde9708aeb03e6e6ddc212c6982876fc410b",
+          "version": "2.0.4"
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -65,9 +65,7 @@ open class UILabel: UIView {
 	// MARK: - intrinsic content size based off text size.
 	
 	open override var intrinsicContentSize: CGSize {
-		let width = textBlock.width + layoutMargins.left + layoutMargins.right;
-		let height = textBlock.height + layoutMargins.top + layoutMargins.bottom;
-		return CGSize(width: width, height: height);
+		return textBlock.size + layoutMargins.size;
 	}
 	
     // MARK: - Draw

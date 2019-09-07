@@ -75,10 +75,10 @@ open class UIView: UIResponder {
     /// The view’s background color.
     ///
     /// The default value is `nil`, which results in a transparent background color.
-    public final var backgroundColor: UIColor? { didSet { setNeedsDisplay() } }
+    public final var backgroundColor: UIColor? = UIColor.clear { didSet { setNeedsDisplay() } }
 	
 	/// The color of this view's border. The default value is nil, which results in no border being drawn.
-	public final var borderColor: UIColor? {
+	public final var borderColor: UIColor? = UIColor.clear {
 		didSet {
 			// If we change from drawing a border to not drawing a border, or vice versa, set the borderwidth to reflect the presence of a border.
 			if borderColor != nil && oldValue == nil {
@@ -509,10 +509,15 @@ open class UIView: UIResponder {
         
         guard let index = superview?.subviews.index(where: { $0 === self })
             else { return }
+		
+		// Remove constraints from the superview that use this constraint.
+		superview?.constraints.filter { (constraint) in
+			constraint.constrains(self);
+		}
+		
+		superview?.willRemoveSubview(self);
         
-        superview?.willRemoveSubview(self)
-        
-        superview?.subviews.remove(at: index)
+		superview?.subviews.remove(at: index);
     }
     
     /// Inserts a subview at the specified index.
@@ -990,14 +995,15 @@ open class UIView: UIResponder {
         
         UIGraphicsPushContext(context)
         
-        // draw background color
-		let background = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: borderWidth, y: borderWidth), size: frame.size - (borderWidth * 2)), cornerRadius: borderRadius);
-		UIColor.clear.set();
+        // draw the background.
+		let background = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: 0, y: 0), size: frame.size), cornerRadius: borderRadius);
 		backgroundColor?.setFill();
-		borderColor?.setStroke();
-		context.lineWidth = borderWidth;
 		background.fill();
-		background.stroke();
+		// Draw the border
+		let border = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: borderWidth / 2, y: borderWidth / 2), size: CGSize(width: frame.size.width - borderWidth, height: frame.size.height - borderWidth)), cornerRadius: borderRadius);
+		borderColor?.setStroke();
+		border.lineWidth = borderWidth;
+		border.stroke();
         
         // apply alpha
 		context.setAlpha(alpha)

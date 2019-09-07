@@ -22,7 +22,7 @@ public class NSLayoutAnchor<AttributeType: Attribute>{
 	// The axis for the given anchor class. Used for debug information.
 	public var axis: String {
 		get {
-			return "All";
+			return attribute.axis?.description ?? "Missing axis description";
 		}
 	}
 	
@@ -40,36 +40,20 @@ public class NSLayoutAnchor<AttributeType: Attribute>{
 		}
 	}
 	
-	private func constraintGeneric(to target: NSLayoutAnchor<AttributeType>, relatedBy relation: NSLayoutConstraint.Relation, constant: CGFloat) -> NSLayoutConstraint {
-		return NSLayoutConstraint(item: self.item, attribute: self.attribute, relatedBy: relation, toItem: target.item, attribute: target.attribute, multiplier: 1, constant: constant);
+	private func constraintGeneric(to target: NSLayoutAnchor<AttributeType>, relatedBy relation: NSLayoutConstraint.Relation, constant: CGFloat, multiplier: CGFloat, withPriority priority: UILayoutPriority) -> NSLayoutConstraint {
+		return NSLayoutConstraint(item: self.item, attribute: self.attribute, relatedBy: relation, toItem: target.item, attribute: target.attribute, multiplier: multiplier, constant: constant, withPriority: priority);
 	}
 	
-	private func constraintGeneric(to target: NSLayoutAnchor<AttributeType>, relatedBy relation: NSLayoutConstraint.Relation) -> NSLayoutConstraint {
-		return constraintGeneric(to: target, relatedBy: relation, constant: 0);
+	public func constraint(equalTo target: NSLayoutAnchor<AttributeType>, constant: CGFloat = 0, multiplier: CGFloat = 1, withPriority priority: UILayoutPriority = .required) -> NSLayoutConstraint {
+		return constraintGeneric(to: target, relatedBy: .equal, constant: constant, multiplier: multiplier, withPriority: priority);
 	}
 	
-	public func constraint(equalTo target: NSLayoutAnchor<AttributeType>) -> NSLayoutConstraint {
-		return constraintGeneric(to: target, relatedBy: .equal);
+	public func constraint(greaterThanOrEqualTo target: NSLayoutAnchor<AttributeType>, constant: CGFloat = 0, multiplier: CGFloat = 1, withPriority priority: UILayoutPriority = .required) -> NSLayoutConstraint {
+		return constraintGeneric(to: target, relatedBy: .greaterThanOrEqual, constant: constant, multiplier: multiplier, withPriority: priority);
 	}
 	
-	public func constraint(equalTo target: NSLayoutAnchor<AttributeType>, constant: CGFloat) -> NSLayoutConstraint {
-		return constraintGeneric(to: target, relatedBy: .equal, constant: constant);
-	}
-	
-	public func constraint(greaterThanOrEqualTo target: NSLayoutAnchor<AttributeType>) -> NSLayoutConstraint {
-		return constraintGeneric(to: target, relatedBy: .greaterThanOrEqual);
-	}
-	
-	public func constraint(greaterThanOrEqualTo target: NSLayoutAnchor<AttributeType>, constant: CGFloat) -> NSLayoutConstraint {
-		return constraintGeneric(to: target, relatedBy: .greaterThanOrEqual, constant: constant);
-	}
-	
-	public func constraint(lessThanOrEqualTo target: NSLayoutAnchor<AttributeType>) -> NSLayoutConstraint {
-		return constraintGeneric(to: target, relatedBy: .lessThanOrEqual);
-	}
-	
-	public func constraint(lessThanOrEqualTo target: NSLayoutAnchor<AttributeType>, constant: CGFloat) -> NSLayoutConstraint {
-		return constraintGeneric(to: target, relatedBy: .lessThanOrEqual, constant: constant);
+	public func constraint(lessThanOrEqualTo target: NSLayoutAnchor<AttributeType>, constant: CGFloat = 0, multiplier: CGFloat = 1, withPriority priority: UILayoutPriority = .required) -> NSLayoutConstraint {
+		return constraintGeneric(to: target, relatedBy: .lessThanOrEqual, constant: constant, multiplier: multiplier, withPriority: priority);
 	}
 
 }
@@ -94,6 +78,18 @@ public class NSLayoutDimension: NSLayoutAnchor<Dimension> {
 
 	internal init(for attribute: NSLayoutConstraint.Attribute, on item: AnyObject) throws {
 		try super.init(for: attribute, on: item, axis: .dimension);
+	}
+	
+	public func constraint(equalTo constant: CGFloat, withPriority priority: UILayoutPriority = .required) -> NSLayoutConstraint {
+		return NSLayoutConstraint(item: self.item, attribute: self.attribute, relatedBy: .equal, toItem: nil, attribute: .notAnAttribute, multiplier: 1, constant: constant, withPriority: priority);
+	}
+	
+	public func constraint(lessThanOrEqualTo constant: CGFloat, withPriority priority: UILayoutPriority = .required) -> NSLayoutConstraint {
+		return NSLayoutConstraint(item: self.item, attribute: self.attribute, relatedBy: .lessThanOrEqual, toItem: nil, attribute: .notAnAttribute, multiplier: 1, constant: constant, withPriority: priority);
+	}
+	
+	public func constraint(greaterThanOrEqualTo constant: CGFloat, withPriority priority: UILayoutPriority = .required) -> NSLayoutConstraint {
+		return NSLayoutConstraint(item: self.item, attribute: self.attribute, relatedBy: .greaterThanOrEqual, toItem: nil, attribute: .notAnAttribute, multiplier: 1, constant: constant, withPriority: priority);
 	}
 	
 }

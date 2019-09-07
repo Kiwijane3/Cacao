@@ -63,7 +63,7 @@ public class NSLayoutConstraint {
 		}
 	}
 	
-	public required init(item firstItem: Any, attribute firstAttribute: Attribute, relatedBy relation: Relation, toItem secondItem: Any?, attribute secondAttribute: Attribute, multiplier: CGFloat, constant: CGFloat) {
+	public required init(item firstItem: Any, attribute firstAttribute: Attribute, relatedBy relation: Relation, toItem secondItem: Any?, attribute secondAttribute: Attribute, multiplier: CGFloat, constant: CGFloat, withPriority priority: UILayoutPriority = .required) {
 		// TODO: Add error checking.
 		self.isActive = false;
 		self.firstItem = firstItem as? AnyObject;
@@ -73,7 +73,7 @@ public class NSLayoutConstraint {
 		self.secondAttribute = secondAttribute;
 		self.multiplier = multiplier;
 		self.constant = constant;
-		self.priority = UILayoutPriority.required;
+		self.priority = priority;
 		self.identifier = nil;
 		self.shouldBeArchived = false;
 	}
@@ -94,6 +94,16 @@ public class NSLayoutConstraint {
 		}
 	}
 	
+	public func constrains(_ object: AnyObject) -> Bool {
+		if let firstItem = firstItem, object === firstItem {
+			return true;
+		}
+		if let secondItem = secondItem, object === secondItem {
+			return true;
+		}
+		return false;
+	}
+	
 	/// The first object that has a property constrained by this constraint.
 	public var firstItem: AnyObject?;
 	
@@ -112,8 +122,6 @@ public class NSLayoutConstraint {
 	public var multiplier: CGFloat;
 	
 	public var constant: CGFloat;
-	
-	/// Apparently, there are "Anchors" in the UIKit implementation. I don't know what they do or how to do it, so I've left them unimplemented.
 	
 	/// The priority of this constraint; i.e, how important it is to be implemented.
 	public var priority: UILayoutPriority;

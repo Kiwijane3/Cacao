@@ -28,7 +28,6 @@ public final class UIImage {
 	}
 	
 	/**
-	// Creates an image of the given size, drawn using the draw function provided.
 	public init?(withId id: String, size: CGSize, drawingWith draw: () -> (Void)) {
 		if let imageSurface = try? Cairo.Surface.Image(format: .argb32, width: Int(size.width), height: Int(size.height)), let context = try? CGContext(surface: imageSurface, size: size) {
 			// Push the context to draw into using draw() function. If this code is being called on a non-UI thread, the UI thread may alter the context during draw, leading to issues, so call this function from the UI thread; This kind of drawing is fairly efficient, anyway.

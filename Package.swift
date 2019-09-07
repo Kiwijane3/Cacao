@@ -1,4 +1,5 @@
 // swift-tools-version:5.0
+
 import PackageDescription
 
 let package = Package(
@@ -8,16 +9,16 @@ let package = Package(
 	],
     dependencies: [
         .package(
-            path: "https://github.com/Kiwijane3/Silica.git"
+			url: "https://github.com/Kiwijane3/Cairo.git", from: "1.2.4"
         ),
         .package(
-            path: "https://github.com/Kiwijane3/Cairo.git"
-        ),
-        .package(
-            path: "https://github.com/PureSwift/SDL.git"
+			url: "https://github.com/Kiwijane3/SDL.git", from: "1.1.0"
         ),
 		.package(
-			path: "https://github.com/Kiwijane3/Cassowary.git"
+			url: "https://github.com/Kiwijane3/Cassowary.git", from: "2.0.1"
+		),
+		.package(
+			url: "https://github.com/Kiwijane3/Silica.git", from: "2.0.3"
 		)
     ],
     targets: [
@@ -30,5 +31,5 @@ let package = Package(
 				"Cassowary"
             ]
         )
-        ]
+	]
 )

@@ -31,9 +31,11 @@ public class UIWindowBar: UIView {
 		didSet {
 			// Remove the old value from the view.
 			oldValue?.removeFromSuperview();
-			// Constraint the new view.
-			centerView?.centerXAnchor.constraint(equalTo: self.centerXAnchor).isActive = true;
-			centerView?.centerYAnchor.constraint(equalTo: centerYAnchor).isActive = true;
+			if let centerView = centerView {
+				self.addSubview(centerView);
+				centerView.centerXAnchor.constraint(equalTo: self.centerXAnchor).isActive = true;
+				centerView.centerYAnchor.constraint(equalTo: centerYAnchor).isActive = true;
+			}
 		}
 	}
 	

@@ -130,6 +130,8 @@ public class TextBlock {
 	}
 	
 	public func recalculateLayout() {
+		lines = [];
+		width = 0;
 		if wrapWidth >= 0 {
 			// Split into segments based on line break characters.
 			let explicitLines = linesForExplicitBreaks();

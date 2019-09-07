@@ -75,6 +75,7 @@ open class UIWindow: UIView {
 		renderer = try! SDLRenderer(window: sdlWindow);
 		
 		super.init(frame: .zero);
+		self.backgroundColor = .background;
 		self.updateSize();
     }
 	
