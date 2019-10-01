@@ -53,7 +53,7 @@ open class UIPanGestureRecognizer: UIGestureRecognizer {
     private var displacement: CGPoint = .zero
     
     private var movementDuration: TimeInterval = 0
-    
+	
     private func validate(event: UIEvent) -> Set<UITouch>? {
         
         guard let gestureTouches = event.touches(for: self),
@@ -99,9 +99,9 @@ open class UIPanGestureRecognizer: UIGestureRecognizer {
         
         guard let _ = validate(event: event)
             else { return }
-        
+		
         self.transition(to: .possible)
-        self.lastMovement = event.timestamp
+        	self.lastMovement = event.timestamp
     }
     
     open override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
@@ -112,7 +112,8 @@ open class UIPanGestureRecognizer: UIGestureRecognizer {
         switch self.state {
             
         case .possible:
-            
+			
+			
             self.transition(to: .began)
             self.start = (gestureTouches.center, event.timestamp)
             

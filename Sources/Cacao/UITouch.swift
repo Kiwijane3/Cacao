@@ -15,7 +15,7 @@ public final class UITouch: NSObject {
         
         self.touches = [touch]
         self.inputType = inputType
-		self.window = view.window;
+		self.window = view?.window;
         self.view = view;
 		self.gestureRecognizers = gestureRecognizers
 		
@@ -73,6 +73,12 @@ public final class UITouch: NSObject {
     
     /// The time when the touch occurred.
     public var timestamp: TimeInterval { return touches.last!.timestamp }
+	
+	public var isValid: Bool {
+		get {
+			return phase != .cancelled && phase != .ended;
+		}
+	}
     
     /// Returns the current location of the receiver in the coordinate system of the given view.
     ///
@@ -85,9 +91,9 @@ public final class UITouch: NSObject {
     /// this method performs any necessary conversion of the touch location to the coordinate system of the specified view.
     public func location(in view: UIView? = nil) -> CGPoint {
         
-        let view = view ?? touches.last!.window
+        let view = view ?? window
         
-        return view.convert(location, to: view)
+		return view?.convert(location, to: view) ?? .zero;
     }
     
     /// Returns the previous location of the receiver in the coordinate system of the given view.
@@ -96,9 +102,9 @@ public final class UITouch: NSObject {
         guard let previousTouch = self.previousTouch
             else { return .zero }
         
-        let view = view ?? previousTouch.window // should always be same window
+        let view = view ?? window // should always be same window
         
-        return view.convert(previousTouch.location, to: view)
+		return view?.convert(previousTouch.location, to: view) ?? .zero;
     }
     
     // MARK: - CustomStringConvertible
@@ -158,7 +164,6 @@ internal extension UITouch {
             self.location = location
             self.timestamp = timestamp
             self.phase = phase
-            self.view = view
         }
     }
 }

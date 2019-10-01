@@ -42,32 +42,38 @@ internal struct IOHIDEvent {
             }
             
 			// The sdl event components are given relative to the current window, not the screen.
-            let windowLocation = CGPoint(x: CGFloat(sdlEvent.button.x),
-                                         y: CGFloat(sdlEvent.button.y))
+			let windowLocation = CGPoint(x: CGFloat(sdlEvent.tfinger.x),
+										 y: CGFloat(sdlEvent.tfinger.y))
             
             self.data = .touch(screenEvent, windowLocation);
             
         case SDL_MOUSEBUTTONDOWN,
              SDL_MOUSEBUTTONUP,
              SDL_MOUSEMOTION:
-            
+			
             // dont translate touch screen events.
             guard sdlEvent.button.which != Uint32(bitPattern: -1)
                 else { return nil }
-            
+			
             let screenEvent: ScreenInputEvent
-            
             switch eventType {
             case SDL_MOUSEBUTTONDOWN: screenEvent = .down
             case SDL_MOUSEBUTTONUP: screenEvent = .up
             case SDL_MOUSEMOTION: screenEvent = .motion
             default: return nil
             }
-            
-			// As mentioned above, this is relative to the window.
-            let windowLocation = CGPoint(x: CGFloat(sdlEvent.button.x),
-                                         y: CGFloat(sdlEvent.button.y))
-            
+			// The sdl event components are given relative to the current window, not the screen.
+			let windowLocation: CGPoint;
+			// Attempt to read the windowLocation.
+			switch eventType {
+			case SDL_MOUSEBUTTONDOWN, SDL_MOUSEBUTTONUP:
+				let mouseButtonEvent = sdlEvent.button;
+				windowLocation = CGPoint(x: CGFloat(mouseButtonEvent.x), y: CGFloat(mouseButtonEvent.y));
+			case SDL_MOUSEMOTION:
+				let mouseMotionEvent = sdlEvent.motion;
+				windowLocation = CGPoint(x: CGFloat(mouseMotionEvent.x), y: CGFloat(mouseMotionEvent.y));
+			default: return nil;
+			}
             self.data = .mouse(screenEvent, windowLocation);
             
         case SDL_MOUSEWHEEL:
@@ -125,7 +131,7 @@ internal struct IOHIDEvent {
             return nil
         }
     }
-    
+	
     /// Merge the data if an event into another
     func merge(event: IOHIDEvent) -> IOHIDEvent? {
         

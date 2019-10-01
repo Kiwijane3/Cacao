@@ -11,7 +11,7 @@ import Foundation
 /// a specific action or intention in response to user interactions.
 open class UIControl: UIView {
 
-	private typealias TargetAction = (target: AnyObject?, id: String, Action: Selector.Action, controlEvents: UIControlEvents);
+	private typealias TargetAction = (target: AnyObject?, id: String, Action: (UIEvent?) -> (), controlEvents: UIControlEvents);
     // MARK: - Configuring the Control’s Attributes
     
     /// The state of the control, specified as a bitmask value.
@@ -30,30 +30,16 @@ open class UIControl: UIView {
 	public override init(frame: CGRect) {
 		super.init(frame: frame);
 	}
-    
-    /// Adds a target action based on the given selector. This functionality is included for compatibility with Darwin systems, and has somewhat awkward syntax. It is recommended to use the addTarget methods based on ids and closures, and this method may become deprecated in future.
-    public func addTarget(_ target: AnyObject, action selector: Selector, for controlEvents: UIControlEvents) {
-		// Convert the variables to a TargetAction and add to the action.
-		targetActions.append((target, selector.name, selector.action, controlEvents));
-    }
 	
 	/// Registers an action to be called on the given control events. Target and id are used for identifying actions to allow for easy removal; Target represents the object that registered the action, and id defines the specific action.
 	public func addTarget(_ target: AnyObject, id: String, action: @escaping (UIEvent?) -> (), for controlEvents: UIControlEvents) {
-		targetActions.append((target, id, { (_, _, event) in action(event) }, controlEvents));
+		targetActions.append((target, id, action, controlEvents));
 	}
 	
 	/// Registers an action to be called on the given control events. Id is used to identify the action for easy removal. This should be used when the registering object is unimportant.
 	public func add(withId id: String, action: @escaping (UIEvent?) -> (), for controlEvents: UIControlEvents) {
-		targetActions.append((nil, id, { (_, _, event) in action(event) }, controlEvents));
+		targetActions.append((nil, id, action, controlEvents));
 	}
-    
-    /// Removes all targetActions with the specified target, the selector's id, and where that targetAction's control events are a subset of the parameter controlEvents. If any of these are nil, then any value will match the respective field for elimination.
-    public func removeTarget(_ target: AnyObject, action selector: Selector?, for controlEvents: UIControlEvents) {
-		targetActions = targetActions.filter { targetAction -> Bool in
-			let (elementTarget, elementId, _, elementControlEvents) = targetAction;
-			return (elementTarget === target || target == nil) && (elementId == selector?.name || selector == nil) && (controlEvents.isSuperset(of: elementControlEvents));
-		}
-    }
 	
 	/// Removes all targetActions with the specified target, the specified id, and where that targetAction's control events are a subset of the parameter controlEvents. If any of these are nil, then any value will match the respective field for elimination.
 	public func removeTarget(_ target: AnyObject?, id: String?, for controlEvents: UIControlEvents) {
@@ -146,7 +132,7 @@ open class UIControl: UIView {
     public func sendActions(for controlEvents: UIControlEvents) {
 		for (target, id, action, actionControlEvents) in targetActions {
 			if controlEvents.isSuperset(of: actionControlEvents) {
-				action(target, nil, nil);
+				action(nil);
 			}
 		}
     }
@@ -176,33 +162,6 @@ private extension UIControl {
             return lhs.value == rhs.value
         }
     }
-}
-
-/// Cacao extension since Swift doesn't support ObjC runtime (on non-Darwin platforms)
-public class Selector: Hashable, Equatable {
-    
-    public typealias Action = (_ target: Any?, _ sender: AnyObject?, _ event: UIEvent?) -> ()
-    
-    public let action: Action
-    
-    public let name: String
-    
-    public init(name: String, action: @escaping Action) {
-        
-        self.name = name
-        self.action = action
-    }
-    
-    public var hashValue: Int {
-        
-        return name.hashValue
-    }
-    
-    public static func == (lhs: Selector, rhs: Selector) -> Bool {
-        
-        return lhs.name == rhs.name
-    }
-	
 }
 
 /// Constants describing the state of a control.

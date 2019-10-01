@@ -53,6 +53,16 @@ open class UIWindow: UIView {
 		}
 	}
 	
+	private var position: CGPoint {
+		get {
+			let position = sdlWindow.position;
+			return CGPoint(x: position.x, y: position.y);
+		}
+		set {
+			sdlWindow.position = (Int(newValue.x), Int(newValue.y));
+		}
+	}
+	
 	internal let renderer: SDLRenderer;
     
     // MARK: - Initialization
@@ -162,6 +172,19 @@ open class UIWindow: UIView {
         
         UIScreen.main.setKeyWindow(self)
     }
+	
+	// Converts a position in the window into a position into the screen space.
+	public func convertToScreen(_ windowPoint: CGPoint) -> CGPoint {
+		// Simply add the screen position to the point.
+		return windowPoint + self.position;
+	}
+	
+	public func convertToScreen(_ point: CGPoint, from view: UIView) -> CGPoint {
+		// Convert the point from the view's coordinate space to the window's space.
+		let windowPoint = self.convert(point, from: view);
+		// Return the screen position for the windowPoint.
+		return convertToScreen(windowPoint);
+	}
     
     /// Called automatically to inform the window that it has become the key window.
     open func becomeKey() { /* subclass implementation */ }
@@ -274,13 +297,9 @@ open class UIWindow: UIView {
     // MARK: - Private Methods
     
     private func sendTouches(for event: UITouchesEvent) {
-        
         let touches = event.touches
-        
         for touch in touches {
-			
 			debugPrint("Touch at \(touch.location()), view was \(touch.view)");
-			
             switch touch.phase {
             case .began: touch.view?.touchesBegan(touches, with: event)
             case .moved: touch.view?.touchesMoved(touches, with: event)

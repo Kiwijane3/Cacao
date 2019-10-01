@@ -94,12 +94,6 @@ public class TextBlock {
 	
 	public private(set) var lines: [String];
 	
-	public var lineHeight: CGFloat {
-		get {
-			return attributes.font.ascender + attributes.font.descender + lineLead;
-		}
-	}
-	
 	public private(set) var size: CGSize;
 	
 	public private(set) var width: CGFloat {
@@ -120,6 +114,14 @@ public class TextBlock {
 		}
 	}
 	
+	public var selectable: Bool;
+	
+	// Represents the midpoints of each character in each line. Used for character selection.
+	private var selectionMidpoints: [[CGFloat]]?;
+	
+	// Represents the heights at which there is a change in line.
+	private var lineBoundaries: [CGFloat]?;
+	
 	public init() {
 		attributes = TextAttributes();
 		lineLead = 4;
@@ -127,6 +129,7 @@ public class TextBlock {
 		rawText = "";
 		lines = [String]();
 		size = CGSize();
+		selectable = false;
 	}
 	
 	public func recalculateLayout() {
@@ -140,11 +143,10 @@ public class TextBlock {
 				wrap(explicitLine);
 			}
 			calculateHeight();
-			debugPrint("Performed text layout with attributes: \(attributes)");
-			for line in lines {
-				debugPrint(line);
+			if selectable {
+				calculateLineBoundaries();
+				calculateMidpoints();
 			}
-			debugPrint("Layout Dimensions; width: \(width), height: \(height)");
 		} else {
 			// wrapWidth values below 0 indicate no wrapping, so simply calculate the explicit lines.
 			lines = linesForExplicitBreaks();
@@ -156,11 +158,30 @@ public class TextBlock {
 				}
 			}
 			calculateHeight();
+			if selectable {
+ 				calculateLineBoundaries();
+				calculateMidpoints();
+			}
 		}
 	}
 	
 	public func calculateHeight() {
-		height = (CGFloat(lines.count) * lineHeight) + lineLead;
+		height = 0;
+		for index in 0..<lines.count {
+			height += height(ofLine: index);
+		}
+	}
+	
+	public func height(ofLine index: Int) -> CGFloat {
+		return attributes.font.ascender + attributes.font.descender + lineLead;
+	}
+	
+	func calculateLineBoundaries() {
+		lineBoundaries = [0];
+		for index in 0..<lines.count {
+			lineBoundaries!.append(lineBoundaries![index] + height(ofLine: index));
+		}
+		
 	}
 	
 	func linesForExplicitBreaks() -> [String] {
@@ -264,16 +285,37 @@ public class TextBlock {
 		return font.advances(for: line).reduce(0.0, { (sum, element)  in return sum + element.width; });
 	}
 	
+	// Calculates and sets the midpoints of the line
+	func calculateMidpoints() {
+		self.selectionMidpoints = lines.map({ (line) in
+			return calculateMidpoints(for: line);
+		})
+	}
+	
+	// Returns the horizontal center point ofthe each character in the line. Used for selection.
+	func calculateMidpoints(for line: String) -> [CGFloat] {
+		let advances = font.advances(for: line);
+		var midpoints = [CGFloat]();
+		// The position representing the beginning of the character under consideration.
+		var position: CGFloat = 0;
+		for advance in advances {
+			let charEnd = position + advance.width;
+			midpoints.append((position + charEnd) / 2);
+			position = charEnd;
+		}
+		return midpoints;
+	}
+	
 	func draw(in rect: CGRect, context: Silica.CGContext) {
 		context.setTextAttributes(attributes);
 		var drawOrigin = rect.origin;
-		for line in lines {
+		for lineIndex in 0..<lines.count {
 			// Set the appropriate origin for this line of text.
 			context.textPosition = drawOrigin;
 			// Draw the text.
-			context.show(text: line);
+			context.show(text: lines[lineIndex]);
 			// Advance the origin to the next line.
-			drawOrigin.y += lineHeight;
+			drawOrigin.y += height(ofLine: lineIndex);
 		}
 	}
 	

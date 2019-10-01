@@ -16,14 +16,15 @@ import Foundation
 open class UIGestureRecognizer: NSObject {
     
     // MARK: - Internal Properties
-    
-    private var targetActions = [TargetAction]()
+	public typealias TargetAction = (target: AnyObject?, id: String, action: () -> ());
     
     internal var touches = [UITouch]()
     
     private var failureRequirements = [UIGestureRecognizer]()
     
     internal weak var gestureEnvironment: UIGestureEnvironment?
+	
+	private var targetActions = [TargetAction]();
     
     // MARK: - Initializing a Gesture Recognizer
         
@@ -32,32 +33,38 @@ open class UIGestureRecognizer: NSObject {
     //     -(void)handleGesture:(UIGestureRecognizer*)gestureRecognizer;
     
     /// Initializes an allocated gesture-recognizer object with a target and an action selector.
-    public init(targetAction: TargetAction) {
+    public override init() {
         super.init()
-        
-        self.addTarget(targetAction)
     }
-    
+	
     // MARK: - Adding and Removing Targets and Actions
     
     // add a target/action pair. you can call this multiple times to specify multiple target/actions
-    public func addTarget(_ target: TargetAction) {
-        
-        targetActions.append(target)
+	public func addTarget(_ target: AnyObject?, id: String, action: @escaping () -> ()) {
+		targetActions.append((target, id, action));
     }
-    
+	
+	public func add(withId id: String, action: @escaping () -> ()) {
+		targetActions.append((nil, id, action));
+	}
+	
     // remove the specified target/action pair. passing nil for target matches all targets, and the same for actions
-    public func removeTarget(_ target: TargetAction) {
-        
-        guard let index = targetActions.index(where: { $0.name == target.name })
-            else { return }
-        
-        targetActions.remove(at: index)
+	public func removeTarget(_ target: AnyObject?, withId id: String?) {
+		targetActions = targetActions.filter({ targetAction -> Bool in
+			return (target === targetAction.target || target == nil) && (id == targetAction.id || id == nil);
+		})
     }
+	
+	public func remove(withId id: String?) {
+		targetActions = targetActions.filter({ targetAction in
+			return id == targetAction.id || id == nil
+		})
+	}
     
     internal func performActions() {
-        
-        targetActions.forEach { $0.action(self) }
+		for targetAction in targetActions {
+			targetAction.action();
+		}
     }
     
     // MARK: - Getting the Touches and Location of a Gesture
@@ -97,7 +104,16 @@ open class UIGestureRecognizer: NSObject {
     ///
     /// - Warning: Readonly for users of a gesture recognizer.
     /// May only be changed by direct subclasses of `UIGestureRecognizer`.
-    open var state = UIGestureRecognizerState()
+	private var _state: UIGestureRecognizerState = .possible;
+	
+	public var state: UIGestureRecognizerState {
+		get {
+			return _state;
+		}
+		set {
+			transition(to: newValue);
+		}
+	}
     
     private let states: [(from: UIGestureRecognizerState, to: UIGestureRecognizerState, notify: Bool, reset: Bool)] =
         [(.possible, .recognized, true, true),
@@ -113,39 +129,60 @@ open class UIGestureRecognizer: NSObject {
     
     @discardableResult
     internal func transition(to state: UIGestureRecognizerState) -> (notify: Bool, reset: Bool) {
-        
-        let newValue = state
-        
+        var newValue = state
         let oldValue = self.state
-        
-        guard oldValue != newValue
-            else { return (false, false) }
-        
-        guard let transition = states.first(where: { $0.from == oldValue && $0.to == newValue })
-            else { fatalError("Invalid transition \(oldValue) -> \(newValue)") }
-        
-        self.state = newValue
-        
-        if transition.notify {
-            
-            performActions()
-        }
-        
-        if transition.reset {
-            
-            reset()
-        }
-        
-        return (transition.notify, transition.reset)
+		// Find the transition
+		var transition: (from: UIGestureRecognizerState, to: UIGestureRecognizerState, notify: Bool, reset: Bool)? = nil;
+		// If we are entering the begin state, we need to perform some checks to generate the correct state.
+		if newValue == .began {
+			// Check the failure dependencies. If they have not all failed, we cannot begin. If any of them have succeeded, we trasnition to the fail state.
+			// Start with transition in the possible to began transition, and transition to a new state if we find an applicable case.
+			transition = (.possible, .began, true, false);
+			for failureDependency in failureRequirements {
+				switch failureDependency.state {
+				case .began, .recognized:
+					// Transition to the fail state if a dependency has succeeded.
+					transition = (oldValue, .failed, false, true);
+				case .failed:
+					continue;
+				default:
+					// Stay in the possible state if the dependency has not yet resolved.
+					newValue = .possible;
+					transition = (.possible, .possible, false, false);
+				}
+			}
+			// Check the delegate, if one has been assigned.
+			if let delegate = delegate {
+				// Check that the gesture can begin, and transition to failed if it cannot.
+				if !delegate.gestureRecognizerShouldBegin(self) {
+					transition = (.possible, .failed, false, true);
+				}
+			}
+		} else {
+			transition = states.first(where: { $0.from == oldValue && $0.to == newValue });
+		}
+		if let transition = transition {
+			self._state = transition.to;
+			if transition.notify {
+				performActions()
+			}
+			if transition.reset {
+				reset()
+			}
+			return (transition.notify, transition.reset)
+		} else {
+			debugPrint("WARNING: Invalid state transition from \(oldValue) to \(newValue) attempted! State is unaltered. Please check code!");
+			return(false, false);
+		}
     }
-    
+	
     // a UIGestureRecognizer receives touches hit-tested to its view and any of that view's subviews
     // the view the gesture is attached to. set by adding the recognizer to a UIView using the `addGestureRecognizer()` method
     
     /// The view the gesture recognizer is attached to.
     public internal(set) weak var view: UIView?
     
-    // default is true. disabled gesture recognizers will falset receive touches. when changed to false the gesture recognizer will be cancelled if it's currently recognizing a gesture
+    // default is true. disabled gesture recognizers will not receive touches. when changed to false the gesture recognizer will be cancelled if it's currently recognizing a gesture
     public var isEnabled: Bool = true
     
     internal var shouldRecognize: Bool {
@@ -169,8 +206,7 @@ open class UIGestureRecognizer: NSObject {
     
     // MARK: - Specifying Dependencies Between Gesture Recognizers
     
-    // create a relationship with afalsether gesture recognizer that will prevent this gesture's actions from being called until otherGestureRecognizer transitions to .Failed
-    // if otherGestureRecognizer transitions to .Recognized or .Began then this recognizer will instead transition to .Failed
+    // create a relationship with another gesture recogniser ransitions to .Recognized or .Began then this recognizer will instead transition to .Failed
     // example usage: a single tap may require a double tap to fail
     open func require(toFail otherGestureRecognizer: UIGestureRecognizer) {
         
@@ -248,26 +284,6 @@ open class UIGestureRecognizer: NSObject {
     
     /// Sent to the receiver when a system event (such as a low-memory warning) cancels a press event.
     open func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent) { }
-}
-
-// MARK: - Supporting Types
-
-public extension UIGestureRecognizer {
-    
-    public struct TargetAction {
-        
-        public typealias Action = (UIGestureRecognizer) -> ()
-        
-        public let action: Action
-        
-        public let name: String
-        
-        public init(action: @escaping Action, name: String) {
-            
-            self.action = action
-            self.name = name
-        }
-    }
 }
 
 public protocol UIGestureRecognizerDelegate: class {

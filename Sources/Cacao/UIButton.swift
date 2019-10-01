@@ -228,6 +228,7 @@ public final class UIButton: UIControl {
     }
     
     public override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+		debugPrint("Touches Ended");
         sendActions(for: .touchUpInside)
     }
 	

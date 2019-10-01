@@ -51,6 +51,7 @@ public class UIWindowBar: UIView {
 		}
 	}
 	
+	
 	public init() {
 		leftGroup = UIBarItemGroup();
 		rightGroup = UIBarItemGroup();

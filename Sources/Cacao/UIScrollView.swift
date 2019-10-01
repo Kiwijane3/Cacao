@@ -266,8 +266,9 @@ open class UIScrollView: UIView {
         #if os(iOS)
         let gestureRecognizer = UIPanGestureRecognizer(target: self, action: #selector(_panGesture))
         #else
-        let action = UIGestureRecognizer.TargetAction(action: self.panGesture, name: "panGesture")
-        let gestureRecognizer = UIScrollViewPanGestureRecognizer(targetAction: action, scrollview: self)
+		let gestureRecognizer = UIScrollViewPanGestureRecognizer(targetAction: (target: self, id: "Scroll", action: {
+			self.panGesture(self.panGestureRecognizer);
+		}), scrollview: self)
         #endif
         return gestureRecognizer
     }()
@@ -661,8 +662,8 @@ fileprivate final class UIScrollViewPanGestureRecognizer: UIPanGestureRecognizer
     var ignoreMouseEvents: Bool = false
     
     init(targetAction: TargetAction, scrollview: UIScrollView) {
-        super.init(targetAction: targetAction)
-        
+        super.init()
+		self.addTarget(targetAction.target, id: targetAction.id, action: targetAction.action);
         self.scrollview = scrollview
     }
     
