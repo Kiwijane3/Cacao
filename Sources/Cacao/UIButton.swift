@@ -72,10 +72,11 @@ public final class UIButton: UIControl {
 		titleColors = [UIControlState: UIColor]();
 		buttonType = type;
 		super.init(frame: .null);
+		self.intrinsicSizeFitsContent = true;
 		self.layoutMargins = UIEdgeInsets(vertical: 4, horizontal: 9);
 		updateFrameForButtonType();
-		self.borderWidth = 2;
-		self.borderRadius = 4;
+		self.borderWidth = 1;
+		self.borderRadius = 6;
 		let titleLabel = UILabel();
 		addSubview(titleLabel);
 		self.titleLabel = titleLabel;

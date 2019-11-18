@@ -38,19 +38,23 @@ internal final class UIEventEnvironment {
     
     internal func handleEventQueue() {
 		
+		var dispatchTouchEvent = false;
+		
         for hidEvent in eventQueue {
             guard let event = event(for: hidEvent)
                 else { handleNonUIEvent(hidEvent); continue }
            // Dispatch non-touch events immediately. Since touch events use a single event for all touches, that is only dispatched once to avoid multiple calls.
 			if !(event is UITouchesEvent) {
 				application.sendEvent(event);
+			} else {
+				dispatchTouchEvent = true;
 			}
         }
         if let hidEvent = eventQueue.first {
-            print("Processed \(eventQueue.count) events (\(SDL_GetTicks() - UInt32(hidEvent.timestamp))ms)")
+            // print("Processed \(eventQueue.count) events (\(SDL_GetTicks() - UInt32(hidEvent.timestamp))ms)")
         }
 		// Dispatch touch event.
-		if let touchesEvent = touchesEvent {
+		if dispatchTouchEvent, let touchesEvent = touchesEvent {
 			application.sendEvent(touchesEvent);
 		}
 		// Remove 
@@ -61,15 +65,17 @@ internal final class UIEventEnvironment {
 	
 	// Remove stored events, like keyboard or touch events, that have become invalid this cycle.
 	private func clearStoredEvents() {
-		if touchesEvent != nil, !touchesEvent!.isValid {
+		if touchesEvent != nil, !touchesEvent!.isLive {
 			touchesEvent = nil;
 		}
 	}
     
+	// Processes an hidEvent and returns the UIEvent to be dispatched in response, if any.
     private func event(for hidEvent: IOHIDEvent) -> UIEvent? {
         
         let timestamp = Double(hidEvent.timestamp) / 1000
-        
+
+		
         switch hidEvent.data {
             
         case let .touch(mouseEvent, windowLocation):
@@ -90,12 +96,14 @@ internal final class UIEventEnvironment {
         }
     }
 	
+	// Processes an screen input event and returns the current touchesEvent if it needs updating.
 	private func eventForPress(event mouseEvent: IOHIDEvent.ScreenInputEvent, at windowLocation: CGPoint, time timestamp: Double) -> UIEvent? {
 		// Establish the event, either retrieving it or creating a new one.
-		
+		debugPrint("eventForPress(event: at: time:) invoked");
 		// If this touch is contiguous with a live touch sequence, then update that touch sequence. Currently, the code will always update the first touch sequence, and assumes that touch is live, as an event with one ended event will be cleared at the end of the dispatch cycle. This is sufficient for mouse and single touch, but does not support multi-touch. To support multi-touch, a function that identifies which live touch sequence is appropriate.
-		if let event = touchesEvent, let touch = event.touches.first {
+		if let event = touchesEvent, let touch = event.liveTouches.first {
 			let newPhase: UITouchPhase;
+			print(mouseEvent);
 			if mouseEvent == .up {
 				newPhase = .ended
 			} else {
@@ -106,7 +114,8 @@ internal final class UIEventEnvironment {
 				}
 			}
 			let nextTouch = UITouch.Touch(location: windowLocation, timestamp: timestamp, phase: newPhase);
-			touch.update(nextTouch)
+			touch.update(nextTouch);
+			print(touch);
 			debugPrint("Update touch with state \(newPhase), windowLocation: \(windowLocation)");
 			return event;
 		} else {

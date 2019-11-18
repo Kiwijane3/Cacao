@@ -266,7 +266,7 @@ open class UIScrollView: UIView {
         #if os(iOS)
         let gestureRecognizer = UIPanGestureRecognizer(target: self, action: #selector(_panGesture))
         #else
-		let gestureRecognizer = UIScrollViewPanGestureRecognizer(targetAction: (target: self, id: "Scroll", action: {
+		let gestureRecognizer = UIScrollViewPanGestureRecognizer(targetAction: (target: self, id: "Scroll", action: { gestureRecognizer in
 			self.panGesture(self.panGestureRecognizer);
 		}), scrollview: self)
         #endif

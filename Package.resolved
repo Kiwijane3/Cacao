@@ -6,17 +6,17 @@
         "repositoryURL": "https://github.com/Kiwijane3/Cairo.git",
         "state": {
           "branch": null,
-          "revision": "d017bc70812f0bf827bb2beba15353044e31b394",
-          "version": "1.2.5"
+          "revision": "ff0f9007cfe80d50d0101c623580c602b5cc1f66",
+          "version": "1.2.7"
         }
       },
       {
         "package": "Cassowary",
-        "repositoryURL": "https://github.com/Kiwijane3/Cassowary.git",
+        "repositoryURL": "https://github.com/Kiwijane3/CassowarySwift.git",
         "state": {
           "branch": null,
-          "revision": "9cdf6f7651d17d5acfc4c6e4e7a084fa4db7e592",
-          "version": "2.0.1"
+          "revision": "44f1a66ffeb6eeb70387be782cb8844256fb1906",
+          "version": "2.1.0"
         }
       },
       {
@@ -24,8 +24,8 @@
         "repositoryURL": "https://github.com/Kiwijane3/SDL.git",
         "state": {
           "branch": null,
-          "revision": "79e193ee7ad11b76f5863205f4e2892f9369eed3",
-          "version": "1.1.0"
+          "revision": "419b1a6af534ebfc4e0fff533c27d90e7455c114",
+          "version": "1.2.0"
         }
       },
       {
@@ -33,8 +33,8 @@
         "repositoryURL": "https://github.com/Kiwijane3/Silica.git",
         "state": {
           "branch": null,
-          "revision": "7877dde9708aeb03e6e6ddc212c6982876fc410b",
-          "version": "2.0.4"
+          "revision": "5a10556df14f355c86e42a479efe680837dc634f",
+          "version": "2.1.1"
         }
       }
     ]

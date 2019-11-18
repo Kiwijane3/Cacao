@@ -15,10 +15,6 @@ public class UIBarItemGroup: UIView {
 		case rightToLeft
 	}
 	
-	public override var intrinsicContentSize: CGSize {
-		return autoLayoutContentSize;
-	}
-	
 	// Specifies the direction the bar items are presented in; .leftToRight indicates the first item will be on the left and subsequent items will be to the right, and .rightToLeft indicates vice versa.
 	public var direction: Direction = .leftToRight;
 	
@@ -34,6 +30,7 @@ public class UIBarItemGroup: UIView {
 	
 	public init() {
 		super.init(frame: .zero);
+		self.intrinsicSizeFitsContent = true;
 	}
 	
 	public func createItemsAndLayout() {

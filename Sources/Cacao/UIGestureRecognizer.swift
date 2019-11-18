@@ -7,6 +7,8 @@
 
 import Foundation
 
+public typealias UIGestureRecogniser = UIGestureRecognizer;
+
 /// The base class for concrete gesture recognizers.
 ///
 /// A gesture-recognizer object—or, simply, a gesture recognizer—decouples the logic
@@ -16,7 +18,7 @@ import Foundation
 open class UIGestureRecognizer: NSObject {
     
     // MARK: - Internal Properties
-	public typealias TargetAction = (target: AnyObject?, id: String, action: () -> ());
+	public typealias TargetAction = (target: AnyObject?, id: String, action: (UIGestureRecognizer) -> ());
     
     internal var touches = [UITouch]()
     
@@ -40,11 +42,11 @@ open class UIGestureRecognizer: NSObject {
     // MARK: - Adding and Removing Targets and Actions
     
     // add a target/action pair. you can call this multiple times to specify multiple target/actions
-	public func addTarget(_ target: AnyObject?, id: String, action: @escaping () -> ()) {
+	public func addTarget(_ target: AnyObject?, id: String, action: @escaping (UIGestureRecognizer) -> ()) {
 		targetActions.append((target, id, action));
     }
 	
-	public func add(withId id: String, action: @escaping () -> ()) {
+	public func add(withId id: String, action: @escaping (UIGestureRecognizer) -> ()) {
 		targetActions.append((nil, id, action));
 	}
 	
@@ -63,7 +65,7 @@ open class UIGestureRecognizer: NSObject {
     
     internal func performActions() {
 		for targetAction in targetActions {
-			targetAction.action();
+			targetAction.action(self);
 		}
     }
     
@@ -131,35 +133,22 @@ open class UIGestureRecognizer: NSObject {
     internal func transition(to state: UIGestureRecognizerState) -> (notify: Bool, reset: Bool) {
         var newValue = state
         let oldValue = self.state
-		// Find the transition
-		var transition: (from: UIGestureRecognizerState, to: UIGestureRecognizerState, notify: Bool, reset: Bool)? = nil;
-		// If we are entering the begin state, we need to perform some checks to generate the correct state.
-		if newValue == .began {
-			// Check the failure dependencies. If they have not all failed, we cannot begin. If any of them have succeeded, we trasnition to the fail state.
-			// Start with transition in the possible to began transition, and transition to a new state if we find an applicable case.
-			transition = (.possible, .began, true, false);
-			for failureDependency in failureRequirements {
-				switch failureDependency.state {
-				case .began, .recognized:
-					// Transition to the fail state if a dependency has succeeded.
-					transition = (oldValue, .failed, false, true);
-				case .failed:
-					continue;
-				default:
-					// Stay in the possible state if the dependency has not yet resolved.
-					newValue = .possible;
-					transition = (.possible, .possible, false, false);
-				}
+		// Find the appropriate transition.
+		var transition = states.first(where: { $0.from == oldValue && $0.to == newValue });
+		// If we are transitioning out of the possible state, we need to check that this is allowed.
+		if transition != nil && self.state == .possible {
+			// Call the canBegin method to check if we should fail or wait, and act appropriately.
+			switch canBegin() {
+			case .proceed:
+				// If we can proceed, we don't need to do anything and can continue execution.
+				break;
+			case .wait:
+				// We don't need to do anything if we aren't changing the state, so we can just return immediately.
+				return (false, false);
+			case .abort:
+				// If we are aborting, we must transition to the failed, so we set the appropriation transition
+				transition = (.possible, .failed, false, true);
 			}
-			// Check the delegate, if one has been assigned.
-			if let delegate = delegate {
-				// Check that the gesture can begin, and transition to failed if it cannot.
-				if !delegate.gestureRecognizerShouldBegin(self) {
-					transition = (.possible, .failed, false, true);
-				}
-			}
-		} else {
-			transition = states.first(where: { $0.from == oldValue && $0.to == newValue });
 		}
 		if let transition = transition {
 			self._state = transition.to;
@@ -175,6 +164,39 @@ open class UIGestureRecognizer: NSObject {
 			return(false, false);
 		}
     }
+	
+	internal enum TrafficLight {
+		case proceed
+		case wait
+		case abort
+	}
+	
+	// Determines if the gesture recogniser can begin, needs to wait or should fail.
+	internal func canBegin() -> TrafficLight {
+		// We default with proceeding.
+		var result = TrafficLight.proceed;
+		for failureDependency in failureRequirements {
+			switch failureDependency.state {
+			case .began, .recognized:
+				// Transition to the fail state if a dependency has succeeded.
+				result = .abort;
+			case .failed:
+				continue;
+			default:
+				// Stay in the possible state if the dependency has not yet resolved.
+				result = .wait
+			}
+		}
+		// Check the delegate, if one has been assigned.
+		if let delegate = delegate {
+			// Check that the gesture can begin, and transition to failed if it cannot.
+			if !delegate.gestureRecognizerShouldBegin(self) {
+				result = .abort;
+			}
+		}
+		// Return the result
+		return result;
+	}
 	
     // a UIGestureRecognizer receives touches hit-tested to its view and any of that view's subviews
     // the view the gesture is attached to. set by adding the recognizer to a UIView using the `addGestureRecognizer()` method

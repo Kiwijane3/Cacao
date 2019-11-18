@@ -13,12 +13,12 @@ internal final class UITouchesEvent: UIEvent {
     
     public override var allTouches: Set<UITouch>? { return touches }
 	
-	public var isValid: Bool {
+	public var isLive: Bool {
 		get {
-			// The event is valid if there is at least on valid touch within it.
+			// The event is valid if there is at least one live touch within it.
 			if let allTouches = allTouches {
 				for touch in allTouches {
-					if touch.isValid {
+					if touch.isLive {
 						return true;
 					}
 				}
@@ -28,6 +28,14 @@ internal final class UITouchesEvent: UIEvent {
 	}
     
     internal private(set) var touches = Set<UITouch>();
+	
+	internal var liveTouches: Set<UITouch> {
+		get {
+			return touches.filter { (touch) in
+				return touch.isLive;
+			}
+		}
+	}
 	
     internal func addTouch(_ touch: UITouch) {
         touches.insert(touch)

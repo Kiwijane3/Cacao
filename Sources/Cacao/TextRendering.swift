@@ -173,15 +173,16 @@ public class TextBlock {
 	}
 	
 	public func height(ofLine index: Int) -> CGFloat {
-		return attributes.font.ascender + attributes.font.descender + lineLead;
+		debugPrint("Font Descender: \(attributes.font.descender)");
+		debugPrint("Font Ascender: \(attributes.font.ascender)");
+		return attributes.font.ascender + abs(attributes.font.descender) + lineLead;
 	}
 	
 	func calculateLineBoundaries() {
-		lineBoundaries = [0];
+		lineBoundaries = [-Double.infinity];
 		for index in 0..<lines.count {
 			lineBoundaries!.append(lineBoundaries![index] + height(ofLine: index));
 		}
-		
 	}
 	
 	func linesForExplicitBreaks() -> [String] {
@@ -285,7 +286,7 @@ public class TextBlock {
 		return font.advances(for: line).reduce(0.0, { (sum, element)  in return sum + element.width; });
 	}
 	
-	// Calculates and sets the midpoints of the line
+	// Calculates and sets the glyph midpoints of the line
 	func calculateMidpoints() {
 		self.selectionMidpoints = lines.map({ (line) in
 			return calculateMidpoints(for: line);
@@ -304,6 +305,38 @@ public class TextBlock {
 			position = charEnd;
 		}
 		return midpoints;
+	}
+	
+	func resolveLineIndex(for point: CGPoint) -> Int {
+		// Start by checking for y positions above or below the text.
+		if point.y < 0 {
+			return 0;
+		}
+		if point.y > lineBoundaries.last! ?? 0 {
+			return lines.count - 1;
+		}
+		// Perform a binary search
+		// Set up the bounds to cover all lines.
+		var lowerBound = 0;
+		var upperBound = lines.count;
+		while lowerBound != upperBound {
+			var checkIndex = lowerBound + ( ( upperBound - lowerBound ) / 2 );
+			// If the y-point is below the range for the current line, set this as the upperBound to search the upper half of the current range.
+			if point.y < lineBoundaries[checkIndex] {
+				upperBound = checkIndex;
+			} else if point.y > lineBoundaries[checkIndex + 1] {
+				// If the y-point is above the range for the current line, set this as the lower bound and search the upper half of the current range.
+				lowerBound = checkIndex;
+			} else {
+				// The y-point is within the range for this line, so return the current index.
+				return checkIndex;
+			}
+		}
+		return 0;
+	}
+	
+	func resolveIndexInLine(for point: CGPoint) -> Int {
+		// Start by checking if the x or y position is outside the line boundaries.
 	}
 	
 	func draw(in rect: CGRect, context: Silica.CGContext) {

@@ -11,6 +11,7 @@ import CSDL2
 import SDL
 import Silica
 import Cairo
+import Cassowary
 
 /// An object that represents a rectangular area on the screen and manages the content in that area.
 ///
@@ -57,6 +58,8 @@ open class UIView: UIResponder {
 		try! self.trailingMarginAnchor = NSLayoutXAxisAnchor(for: .trailingMargin, on: self);
 		try! centerXWithinMarginsAnchor = NSLayoutXAxisAnchor(for: .centerXWithinMargins, on: self);
 		try! centerYWithinMarginsAnchor = NSLayoutYAxisAnchor(for: .centerYWithinMargins, on: self);
+		
+		self.layoutManager = AutoLayoutManager(for: self);
         
         self.frame = frame
     }
@@ -74,7 +77,7 @@ open class UIView: UIResponder {
     
     /// The view’s background color.
     ///
-    /// The default value is `nil`, which results in a transparent background color.
+    /// The default value is .clear, which results in a transparent background color.
     public final var backgroundColor: UIColor? = UIColor.clear { didSet { setNeedsDisplay() } }
 	
 	/// The color of this view's border. The default value is nil, which results in no border being drawn.
@@ -267,14 +270,27 @@ open class UIView: UIResponder {
         get { return _frame }
         set {
 			// Automatically resize the bounds to accommodate the entire frame.
+			frameDidChange(from: _frame, to: newValue);
             let oldBounds = _bounds
             _bounds.size = newValue.size
 			boundsDidChange(from: oldBounds, to: _bounds);
 			animationRecordingTarget?.recordFrameChange(on: self, from: _frame, to: newValue);
+			let oldFrame = _frame;
 			_frame = newValue;
+			frameDidChange(from: oldFrame, to: _frame);
+			setNeedsLayout();
         }
     }
+	
 	private var _frame = CGRect();
+	
+	private func frameDidChange(from oldFrame: CGRect, to newFrame: CGRect) {
+		// Determine which attributes have changed.
+		if oldFrame.size != newFrame.size {
+			self.layoutManager.notifyContainerResized();
+			self.setNeedsLayout();
+		}
+	}
     
     /// The bounds rectangle, which describes the view’s location and size in its own coordinate system.
     ///
@@ -341,7 +357,22 @@ open class UIView: UIResponder {
 	
 	public var layoutMargins: UIEdgeInsets = UIEdgeInsets() {
 		didSet {
-			// Makes sense that if the margins change, you redo the layout, since autolayout may be based on margins.
+			// Notify the layout system of the new margins.
+			// Determined changed margins.
+			var changedAttributes = [Property.Attribute]();
+			if oldValue.left != layoutMargins.left {
+				changedAttributes.append(.leftMargin);
+			}
+			if oldValue.right != layoutMargins.right {
+				changedAttributes.append(.rightMargin);
+			}
+			if oldValue.top != layoutMargins.top {
+				changedAttributes.append(.topMargin);
+			}
+			if oldValue.bottom != layoutMargins.bottom {
+				changedAttributes.append(.bottomMargin);
+			}
+ 			// Makes sense that if the margins change, you redo the layout, since autolayout may be based on margins.
 			setNeedsLayout();
 		}
 	}
@@ -400,7 +431,7 @@ open class UIView: UIResponder {
     /// - Parameter view: The view to be added. After being added, this view appears on top of any other subviews.
     public func addSubview(_ view: UIView) {
         
-        addSubview(view, { $0.append($1) })
+		addSubview(view, { $0.append($1) });
     }
     
     @inline(__always)
@@ -427,8 +458,12 @@ open class UIView: UIResponder {
             didMoveToScreen()
         }
         view.didMoveToSuperview()
-        didAddSubview(view)
-        
+		didAddSubview(view)
+		
+		// Notify the layout manager of the new view.
+		self.layoutManager.notifyViewAdded(view);
+		self.setNeedsLayout();
+		
         // force redraw
         setNeedsDisplay()
     }
@@ -518,6 +553,12 @@ open class UIView: UIResponder {
 		superview?.willRemoveSubview(self);
         
 		superview?.subviews.remove(at: index);
+		
+		// Notify the superview's layout manager that we have been removed from the superview
+		
+		superview?.layoutManager.notifyViewRemoved(self);
+		self.setNeedsLayout();
+		
     }
     
     /// Inserts a subview at the specified index.
@@ -577,18 +618,24 @@ open class UIView: UIResponder {
         return false
     }
 	
-	// MARK: - Storing the layout constraints.
+	// MARK: - AutoLayout System
+	
+	internal var layoutManager: AutoLayoutManager!;
 	
 	/// The constraints held by the view.
-	public var constraints: [NSLayoutConstraint] = [];
+	public private(set) var constraints: [NSLayoutConstraint] = [];
 	
 	public func addConstraint(_ constraint: NSLayoutConstraint) {
 		constraints.append(constraint);
+		layoutManager.notifyConstraintAdded(constraint);
 		setNeedsLayout();
 	}
 	
 	public func addConstraints(_ constraints: [NSLayoutConstraint]) {
-		self.constraints.append(contentsOf: constraints)
+		self.constraints.append(contentsOf: constraints);
+		for constraint in constraints {
+			layoutManager.notifyConstraintAdded(constraint);
+		}
 		setNeedsLayout();
 	}
 	
@@ -596,6 +643,8 @@ open class UIView: UIResponder {
 		self.constraints.removeAll(where: { (element) -> Bool in
 			return element === constraint;
 		});
+		self.layoutManager.notifyConstraintRemoved(constraint);
+		self.setNeedsLayout();
 	}
 	
 	public func removeConstraints(_ constraints: [NSLayoutConstraint]) {
@@ -604,6 +653,10 @@ open class UIView: UIResponder {
 				return removalConstraint === viewConstraint;
 			});
 		});
+		for constraint in constraints {
+			self.layoutManager.notifyConstraintRemoved(constraint);
+		}
+		self.setNeedsLayout();
 	}
 	
 	// MARK: - LayoutAnchors for the view.
@@ -683,7 +736,17 @@ open class UIView: UIResponder {
     }
 	
 	/// The size that will fit all of the content of the subviews, plus the view's margins.
-	public final var autoLayoutContentSize: CGSize = CGSize(width: UIViewNoIntrinsicMetric, height: UIViewNoIntrinsicMetric);
+	public final var autoLayoutContentSize: CGSize = CGSize(width: UIViewNoIntrinsicMetric, height: UIViewNoIntrinsicMetric) {
+		didSet {
+			// If the intrinsic content size has changed based on autolayout size updates, then invalidate intrinsic content size
+			if intrinsicSizeFitsContent {
+				invalidateIntrinsicContentSize();
+			}
+		}
+	}
+	
+	/// Determines whether this view's intrinsic size automatically reflects the size needed to accommodate the contents, based on autolayout constraints.
+	public final var intrinsicSizeFitsContent: Bool = false;
 	
     /// The natural size for the receiving view, considering only properties of the view itself.
     ///
@@ -699,8 +762,17 @@ open class UIView: UIResponder {
     /// If a custom view has no intrinsic size for a given dimension,
     /// it can use `UIViewNoIntrinsicMetric` for that dimension.
     open var intrinsicContentSize: CGSize {
-        return autoLayoutContentSize;
+		if intrinsicSizeFitsContent {
+			return autoLayoutContentSize;
+		} else {
+			return CGSize(width: UIViewNoIntrinsicMetric, height: UIViewNoIntrinsicMetric);
+		}
     }
+	
+	public func invalidateIntrinsicContentSize() {
+		superview?.layoutManager.notifyIntrinsicContentSizeInvalidated(on: self);
+		superview?.setNeedsLayout();
+	}
 	
 	/// These values store the values for the compression resistance priority on both axes.
 	private var compressionResistanceX: UILayoutPriority = UILayoutPriority.defaultHigh;
@@ -774,7 +846,7 @@ open class UIView: UIResponder {
 		case .vertical:
 			contentHuggingY = priority;
 		case .dimension:
-			debugPrint("setContentHuggingPriority(_:for:) was called with .dimension as the axis. This is invalid. This is a no-op");
+			debugPrint("setContentHuggingPriority(_:for:) was called with .dimension as the axis. This is invalid, and is is a no-op");
 		}
 	}
     
@@ -996,11 +1068,12 @@ open class UIView: UIResponder {
         UIGraphicsPushContext(context)
         
         // draw the background.
-		let background = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: 0, y: 0), size: frame.size), cornerRadius: borderRadius);
+		let background = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: borderRadius / 4, y: borderRadius / 4), size: CGSize(width: frame.width - borderRadius / 2, height: frame.height - borderRadius / 2)), cornerRadius: borderRadius);
 		backgroundColor?.setFill();
 		background.fill();
+		
 		// Draw the border
-		let border = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: borderWidth / 2, y: borderWidth / 2), size: CGSize(width: frame.size.width - borderWidth, height: frame.size.height - borderWidth)), cornerRadius: borderRadius);
+		let border = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: borderRadius / 4 + borderWidth / 2, y: borderRadius / 4 + borderWidth / 2), size: CGSize(width: frame.size.width - borderRadius / 2 - borderWidth / 1, height:  frame.size.height - borderRadius / 2 - borderWidth / 1)), cornerRadius: borderRadius);
 		borderColor?.setStroke();
 		border.lineWidth = borderWidth;
 		border.stroke();
@@ -1040,7 +1113,7 @@ open class UIView: UIResponder {
 		
 		if constraints.count > 0 {
 			debugPrint("Using constraint-based layout for view \(self)");
-			autoLayout();
+			layoutManager.autoLayout();
 		}
 	}
     

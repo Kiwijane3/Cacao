@@ -25,6 +25,7 @@ open class UILabel: UIView {
     open var text: String? {
 		didSet {
 			textBlock.rawText = text ?? "";
+			invalidateIntrinsicContentSize();
 			setNeedsDisplay();
 			setNeedsLayout();
 		}
@@ -34,6 +35,7 @@ open class UILabel: UIView {
 	open var font: UIFont = UIFont(name: "Helvetica", size: 17)! {
 		didSet {
 			textBlock.attributes.font = font;
+			invalidateIntrinsicContentSize();
 			setNeedsDisplay();
 			setNeedsLayout();
 		}
@@ -43,6 +45,7 @@ open class UILabel: UIView {
     open var textColor: UIColor = .black {
 		didSet {
 			textBlock.attributes.color = textColor;
+			invalidateIntrinsicContentSize();
 			setNeedsDisplay();
 		}
 	}
@@ -50,6 +53,7 @@ open class UILabel: UIView {
     open var textAlignment: TextAlignment = .left {
 		didSet {
 			textBlock.attributes.paragraphStyle.alignment = textAlignment;
+			invalidateIntrinsicContentSize();
 			setNeedsDisplay();
 		}
 	}
@@ -57,6 +61,7 @@ open class UILabel: UIView {
 	open var preferredMaxLayoutWidth: CGFloat = 0 {
 		didSet {
 			textBlock.wrapWidth = preferredMaxLayoutWidth;
+			invalidateIntrinsicContentSize();
 		}
 	}
 	

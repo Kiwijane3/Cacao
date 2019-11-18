@@ -39,17 +39,27 @@ open class UIWindow: UIView {
 		}
 	}
 	
-	public var windowBounds: CGRect { return CGRect(origin: .zero, size: size.window) }
-	
-	public var nativeBounds: CGRect { return CGRect(origin: .zero, size: size.native) }
-	
-	public var scale: CGFloat { return size.native.width / size.window.width }
+	public var scale: CGFloat { return nativeSize.width / windowSize.width }
 	
 	public var nativeScale: CGFloat { return scale }
 	
-	private var size: (window: CGSize, native: CGSize) = (window: .zero, native: .zero) {
-		didSet {
-			sizeChanged();
+	// The size of the windows, in UI units.
+	public var windowSize: CGSize {
+		get {
+			let sdlSize = sdlWindow.size;
+			return CGSize(width: CGFloat(sdlSize.width), height: CGFloat(sdlSize.height));
+		}
+		set(size) {
+			sdlWindow.size = (width: Int(size.width), height: Int(size.height));
+			updateSize();
+		}
+	}
+	
+	// The size of the window, in pixels, as given by the renderer size property on the underlying SDL window.
+	public var nativeSize: CGSize {
+		get {
+			let drawableSize = sdlWindow.drawableSize
+			return CGSize(width: CGFloat(drawableSize.width), height: CGFloat(drawableSize.height));
 		}
 	}
 	
@@ -80,9 +90,12 @@ open class UIWindow: UIView {
 		
 		let initialWindowSize = options.windowSize;
 		
+		debugPrint()
+		
 		sdlWindow = try! SDLWindow(title: options.windowName, frame: (x: .centered, y: .centered, width: Int(initialWindowSize.width), height: Int(initialWindowSize.height)), options: windowOptions);
 		
 		renderer = try! SDLRenderer(window: sdlWindow);
+		
 		
 		super.init(frame: .zero);
 		self.backgroundColor = .background;
@@ -90,18 +103,13 @@ open class UIWindow: UIView {
     }
 	
 	internal func updateSize() {
-		let windowSize = sdlWindow.size;
-		let size = CGSize(width: CGFloat(windowSize.width), height: CGFloat(windowSize.height));
-		let rendererSize = sdlWindow.drawableSize;
-		let nativeSize = CGSize(width: CGFloat(rendererSize.width), height: CGFloat(rendererSize.height));
-		self.size = (size, nativeSize);
 		sizeChanged();
-		self.needsLayout = true;
-		self.needsDisplay = true;
+		self.setNeedsLayout();
+		self.setNeedsDisplay();
 	}
 	
 	internal func sizeChanged() {
-		frame = CGRect(origin: .zero, size: size.window);
+		frame = CGRect(origin: .zero, size: windowSize);
 	}
 	
 	internal func update() throws {
@@ -150,6 +158,8 @@ open class UIWindow: UIView {
 							w: Int32(view.bounds.size.width * scale),
 							h: Int32(view.bounds.size.height * scale))
 		
+		let scale = self.scale;
+		
 		// render view
 		try view.render(on: self, in: rect)
 		
@@ -173,7 +183,7 @@ open class UIWindow: UIView {
         UIScreen.main.setKeyWindow(self)
     }
 	
-	// Converts a position in the window into a position into the screen space.
+	/// Converts a position in the window into a position into the screen space.
 	public func convertToScreen(_ windowPoint: CGPoint) -> CGPoint {
 		// Simply add the screen position to the point.
 		return windowPoint + self.position;
@@ -181,11 +191,16 @@ open class UIWindow: UIView {
 	
 	public func convertToScreen(_ point: CGPoint, from view: UIView) -> CGPoint {
 		// Convert the point from the view's coordinate space to the window's space.
-		let windowPoint = self.convert(point, from: view);
+		let windowPoint = view.convert(point, to: self);
 		// Return the screen position for the windowPoint.
 		return convertToScreen(windowPoint);
 	}
     
+	internal func notifyBecameKey() {
+		self.setNeedsLayout();
+		self.setNeedsDisplay();
+	}
+	
     /// Called automatically to inform the window that it has become the key window.
     open func becomeKey() { /* subclass implementation */ }
     
@@ -343,7 +358,70 @@ open class UIWindow: UIView {
 	public func close() {
 		sdlWindow.close();
 	}
+	
+	// MARK: - Window movement and resizing;
+	
+	/// Store the initial size and position so we have a reference point for applying deltas.
+	
+	private var manipulationMode: ManipulationMode?;
+	
+	private var initialPosition: CGPoint?;
 
+	private var initialSize: CGSize?;
+	
+	// The position of the cursor in the window space at the beginning of the manipulation
+	private var initialCursorPosition: CGPoint?;
+	
+	public enum ManipulationMode {
+		case move
+		case resizeWidth
+		case resizeHeight
+		case resizeBoth
+	}
+	
+	/// Records the position and size of the window so manipulations can be performed.
+	public func beginManipulation(withMode mode: ManipulationMode, at point: CGPoint, in view: UIView) {
+		self.manipulationMode = mode;
+		self.initialPosition = self.position;
+		self.initialSize = self.bounds.size;
+		self.initialCursorPosition = self.convertToScreen(point, from: view);
+		debugPrint("Beginning manipulation \(self.manipulationMode) with initial cursor position \(initialCursorPosition), window position: \(self.initialPosition)");
+		// Capture mouse input so we can track changes outside of the window, to prevent abrupt dragging stop if cursor leaves window.
+		sdlWindow.mouseCaptured = true;
+	}
+	
+	public func updateManipulation(to point: CGPoint, in view: UIView) {
+		if let manipulationMode = manipulationMode, let initialPosition = initialPosition, let initialSize = initialSize, let initialCursorPosition = initialCursorPosition {
+			let currentPosition = self.convertToScreen(point, from: view);
+			let xDelta = currentPosition.x - initialCursorPosition.x;
+			let yDelta = currentPosition.y - initialCursorPosition.y;
+			debugPrint("Updated window manipulation with cursor position \(currentPosition), deltas of x: \(xDelta), y: \(yDelta). Initial position: \(initialCursorPosition)");
+			switch manipulationMode {
+			case .move:
+				let targetPosition = CGPoint(x: initialPosition.x + xDelta, y: initialPosition.y + yDelta);
+				debugPrint("Attempting to move window to position: \(targetPosition)")
+				self.position = targetPosition;
+			case .resizeWidth:
+				self.windowSize = CGSize(width: initialSize.width + xDelta, height: initialSize.height);
+			case .resizeHeight:
+				self.windowSize = CGSize(width: initialSize.width, height: initialSize.height + yDelta);
+			case .resizeBoth:
+				self.windowSize = CGSize(width: initialSize.width + xDelta, height: initialSize.height + yDelta);
+			}
+			debugPrint("Window position at: \(position)");
+		}
+	}
+	
+	public func endManipulation() {
+		self.manipulationMode = nil;
+		self.initialPosition = nil;
+		self.initialSize = nil;
+		self.initialCursorPosition = nil;
+		// Uncapture the mouse so other windows can receive events.
+		sdlWindow.mouseCaptured = false;
+		try? update();
+	}
+	
 }
 
 // MARK: - Supporting Types

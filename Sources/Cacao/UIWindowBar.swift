@@ -9,6 +9,8 @@ import Foundation
 
 public class UIWindowBar: UIView {
 	
+	// MARK: - Properties
+	
 	public override var intrinsicContentSize: CGSize {
 		get {
 			return CGSize(width: superview?.frame.size.width ?? 0, height: 48);
@@ -73,6 +75,8 @@ public class UIWindowBar: UIView {
 		self.setNeedsLayout();
 	}
 	
+	// MARK: - Setup
+	
 	// Displays the current item.
 	public func displayItem() {
 		if let windowBarItem = windowBarItem {
@@ -98,6 +102,24 @@ public class UIWindowBar: UIView {
 		}
 		setNeedsLayout();
 		setNeedsDisplay();
+	}
+	
+	// MARK: - Window movement
+	
+	public override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+		if let touch = touches.first {
+			self.window?.beginManipulation(withMode: .move, at: touch.location(in: self), in: self);
+		}
+	}
+	
+	public override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+		if let touch = touches.first {
+			self.window?.updateManipulation(to: touch.location(in: self), in: self);
+		}
+	}
+	
+	public override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+		self.window?.endManipulation();
 	}
 	
 }

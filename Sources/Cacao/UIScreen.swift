@@ -99,6 +99,7 @@ public final class UIScreen {
         keyWindow?.resignKey()
         keyWindow = window
         keyWindow?.becomeKey()
+		keyWindow?.notifyBecameKey();
 		
 		debugPrint("Key window changed: Key window is now \(keyWindow)");
     }

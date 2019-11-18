@@ -52,7 +52,7 @@ internal final class UIEventFetcher {
         
         // get all events in SDL event queue
         while SDL_PollEvent(&sdlEvent) != 0 {
-            
+			
             guard let hidEvent = IOHIDEvent(sdlEvent: &sdlEvent)
                 else { continue }
             
@@ -68,18 +68,21 @@ internal final class UIEventFetcher {
     
     private func receiveHIDEvent(_ event: IOHIDEvent) {
         
+		// print("Received HIDEvent \(event)");
+		
         if let lastEvent = incomingHIDEvents.last,
             let mergedEvent = lastEvent.merge(event: event) {
             
             // replace last event
             incomingHIDEvents[incomingHIDEvents.count - 1] = mergedEvent
-            
         } else {
             
             // add to queue of incoming events
             incomingHIDEvents.append(event)
         }
         
+		// print("Incoming HID Events updated to \(incomingHIDEvents)");
+		
         /*
         // determine if digitizer event
         let isDigitizerEvent: Bool
@@ -141,7 +144,7 @@ internal final class UIEventFetcher {
         // log signaling reason
         if incomingHIDEvents.isEmpty == false {
             
-            print("\(incomingHIDEvents.count) events availible with reason \(reason)")
+            // print("\(incomingHIDEvents.count) events availible with reason \(reason)")
         }
         
         // signal

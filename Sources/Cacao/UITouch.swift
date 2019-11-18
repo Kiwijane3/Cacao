@@ -74,7 +74,7 @@ public final class UITouch: NSObject {
     /// The time when the touch occurred.
     public var timestamp: TimeInterval { return touches.last!.timestamp }
 	
-	public var isValid: Bool {
+	public var isLive: Bool {
 		get {
 			return phase != .cancelled && phase != .ended;
 		}

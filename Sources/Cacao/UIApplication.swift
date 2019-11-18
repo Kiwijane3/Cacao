@@ -31,7 +31,7 @@ public struct CacaoOptions {
     
     public var windowName: String = "App"
     
-    public var windowSize: CGSize = CGSize(width: 600, height: 480)
+    public var windowSize: CGSize = CGSize(width: 1280, height: 720)
         
     public var canResizeWindow: Bool = true
     
@@ -79,7 +79,7 @@ public final class UIApplication: UIResponder {
     /// after handling the event in your implementation.
     public func sendEvent(_ event: UIEvent) {
 		
-		debugPrint("Received event \(event)");
+		// debugPrint("Received event \(event)");
 		
         self.windows.forEach { $0.sendEvent(event) }
     }

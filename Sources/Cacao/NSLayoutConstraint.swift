@@ -11,7 +11,7 @@ import Cassowary
 
 public typealias UILayoutPriority = Float
 
-public class NSLayoutConstraint {
+public class NSLayoutConstraint: Hashable {
 	
 	/// Specifies the property of the target constrained by this constraint.
 	public enum Attribute: Int {
@@ -63,8 +63,98 @@ public class NSLayoutConstraint {
 		}
 	}
 	
+	public var uuid: UUID;
+	
+	/// The first object that has a property constrained by this constraint.
+	public var firstItem: AnyObject? {
+		didSet {
+			didUpdate();
+		}
+	}
+	
+	/// The property of the first object that is constrained by this constraint.
+	public var firstAttribute: NSLayoutConstraint.Attribute  {
+	   didSet {
+		   didUpdate();
+	   }
+   	}
+	
+	/// The second object that has a property constrained by this constraint.
+	public var secondItem: AnyObject? {
+	   didSet {
+		   didUpdate();
+	   }
+   }
+	
+	/// The property of the second object that is constrained by this constraint.
+	public var secondAttribute: NSLayoutConstraint.Attribute {
+	   didSet {
+		   didUpdate();
+	   }
+	}
+
+	/// The relation between the constrained properties, i.e, greater than, less than, or equal.
+	public var relation: Relation {
+	   didSet {
+		   didUpdate();
+	   }
+   }
+	
+	public var multiplier: CGFloat {
+	   didSet {
+		   didUpdate();
+	   }
+   }
+	
+	public var constant: CGFloat {
+	   didSet {
+		   didUpdate();
+	   }
+   }
+	
+	/// The priority of this constraint; i.e, how important it is to be implemented.
+	public var priority: UILayoutPriority {
+	   didSet {
+		   didUpdate();
+	   }
+   }
+	
+	public var identifier: String?;
+	
+	public var shouldBeArchived: Bool;
+	
+	/// The view whose layout manager is responsible for satisfying this constraint;
+	private var implementingView: UIView? {
+		get {
+			if let firstView = firstItem as? UIView {
+				// If there are two views, then find the superview from those.
+				if let secondView = secondItem as? UIView {
+					// If one view is the superview of the other, the superview is the implementing view.
+					if firstView.superview == secondView {
+						return secondView;
+					} else if secondView.superview == firstView {
+						return firstView;
+					// If neither view is the superview of the other, then return their shared superview.
+					} else if firstView.superview == secondView.superview {
+						return firstView.superview;
+					}
+					// If the views are not in a parent-child relationship and do not share a superview, then the constraint is not implemented.
+					else {
+						return nil;
+					}
+				}
+				// If there is only view constrained to a constant, then the superview of the first view is the implementing view.
+				else {
+					return firstView.superview;
+				}
+			}
+			return nil;
+		}
+	}
+	
 	public required init(item firstItem: Any, attribute firstAttribute: Attribute, relatedBy relation: Relation, toItem secondItem: Any?, attribute secondAttribute: Attribute, multiplier: CGFloat, constant: CGFloat, withPriority priority: UILayoutPriority = .required) {
 		// TODO: Add error checking.
+		self.uuid = UUID();
 		self.isActive = false;
 		self.firstItem = firstItem as? AnyObject;
 		self.firstAttribute = firstAttribute;
@@ -104,31 +194,16 @@ public class NSLayoutConstraint {
 		return false;
 	}
 	
-	/// The first object that has a property constrained by this constraint.
-	public var firstItem: AnyObject?;
+	private func didUpdate() {
+	}
 	
-	/// The property of the first object that is constrained by this constraint.
-	public var firstAttribute: NSLayoutConstraint.Attribute;
+	public static func ==(a: NSLayoutConstraint, b: NSLayoutConstraint) -> Bool {
+		return a.uuid == b.uuid;
+	}
 	
-	/// The second object that has a property constrained by this constraint.
-	public var secondItem: AnyObject?;
-	
-	/// The property of the second object that is constrained by this constraint.
-	public var secondAttribute: NSLayoutConstraint.Attribute;
-	
-	/// The relation between the constrained properties, i.e, greater than, less than, or equal.
-	public var relation: Relation;
-	
-	public var multiplier: CGFloat;
-	
-	public var constant: CGFloat;
-	
-	/// The priority of this constraint; i.e, how important it is to be implemented.
-	public var priority: UILayoutPriority;
-	
-	public var identifier: String?;
-	
-	public var shouldBeArchived: Bool;
+	public func hash(into hasher: inout Hasher) {
+		hasher.combine(uuid.hashValue);
+	}
 	
 }
 

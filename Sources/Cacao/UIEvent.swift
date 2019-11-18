@@ -9,7 +9,7 @@ import typealias Foundation.TimeInterval
 
 /// An object that describes a single user interaction with your app.
 public class UIEvent {
-    
+	
     // MARK: - Getting the Touches for an Event
     
     /// Returns all touches associated with the event.

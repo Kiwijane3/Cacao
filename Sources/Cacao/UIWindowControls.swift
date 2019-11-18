@@ -35,6 +35,7 @@ public class UIWindowControls: UIView {
 	
 	public init() {
 		super.init(frame: .zero);
+		self.intrinsicSizeFitsContent = true;
 		createControlsAndLayout();
 	}
 	
@@ -50,7 +51,7 @@ public class UIWindowControls: UIView {
 			if let minimiseImage = UIImage(contentsOfFile: "Window_Minimise.png") {
 				minimiseControl.setImage(minimiseImage, for: .normal);
 			} else {
-				minimiseControl.setTitle("Minimise", for: .normal);
+				minimiseControl.setTitle("_", for: .normal);
 			}
 			minimiseControl.add(withId: "MinimiseWindow", action: { (_) in
 				self.windowController?.minimise();
@@ -63,7 +64,7 @@ public class UIWindowControls: UIView {
 			if let maximiseImage = UIImage(contentsOfFile: "Window_Maximise.png") {
 				maximiseControl.setImage(maximiseImage, for: .normal);
 			} else {
-				maximiseControl.setTitle("Maximise", for: .normal);
+				maximiseControl.setTitle("+", for: .normal);
 			}
 			maximiseControl.add(withId: "MaximiseWindow", action: { (_) in
 				self.windowController?.maximise();
@@ -76,7 +77,7 @@ public class UIWindowControls: UIView {
 		if let closeImage = UIImage(contentsOfFile: "Window_Close.png") {
 			closeControl.setImage(closeImage, for: .normal);
 		} else {
-			closeControl.setTitle("Close", for: .normal);
+			closeControl.setTitle("X", for: .normal);
 		}
 		closeControl.add(withId: "CloseWindow", action: { _ in self.windowController?.close(); }, for: .touchUpInside);
 		controls.append(closeControl);
