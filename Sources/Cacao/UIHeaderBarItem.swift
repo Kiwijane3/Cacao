@@ -7,7 +7,7 @@
 
 import Foundation
 
-public class UIWindowBarItem {
+public class UIHeaderBarItem {
 	
 	public var title: String? = nil;
 	
@@ -18,5 +18,9 @@ public class UIWindowBarItem {
 	public var leftBarItems: [UIBarItem] = [UIBarItem]();
 	
 	public var rightBarItems: [UIBarItem] = [UIBarItem]();
+	
+	public var isEmpty: Bool {
+		return title == nil && showsBackButton == false && backAction == nil && leftBarItems.isEmpty && rightBarItems.isEmpty
+	}
 	
 }

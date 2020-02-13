@@ -16,6 +16,9 @@ open class UIBarItem {
 	// The image associated with the bar item. The precise use varies based on bar item subclass.
 	public var image: UIImage?;
 	
+	// The view representing this bar item. Used primarily for popover display.
+	internal var view: UIView?;
+	
 	public init(title: String? = nil, image: UIImage? = nil) {
 		self.title = title;
 		self.image = image;

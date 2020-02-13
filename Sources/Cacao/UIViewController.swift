@@ -108,10 +108,109 @@ open class UIViewController: UIResponder {
     ///
     /// The value in this property is used primarily when displaying the view controller’s
     /// content in a popover but may also be used in other situations.
-    public final var preferredContentSize: CGSize = .zero
+	public final var preferredContentSize: CGSize = CGSize(width: 384, height: 512);
     
     // MARK: - Presenting View Controllers
     
+	public var presentingViewController: UIViewController?;
+	
+	public var presentedViewController: UIViewController?;
+	
+	private var ownPresentationController: UIPresentationController?;
+	
+	public var presentationController: UIPresentationController? {
+		get {
+			if ownPresentationController == nil {
+				initialisePresentationController();
+			}
+			return retrievePresentationController();
+		}
+	}
+	
+	public var popoverPresentationController: UIPopoverPresentationController? {
+		get {
+			return presentationController as? UIPopoverPresentationController;
+		}
+	}
+	
+	public var modalPresentationStyle: UIModalPresentationStyle = .dialog;
+	
+	// When a popover is displayed, a view may be displayed over the rest of the view content to make the popover clearer. That view will be stored in this variable when present.
+	internal var dimView: UIView?;
+	
+	public func present(_ vc: UIViewController, animated: Bool, completion: (() -> Void)?) {
+		if let presentationController = vc.presentationController, presentedViewController == nil {
+			if presentationController.presentingViewController == self {
+				self.presentedViewController = vc;
+				self.addChildViewController(vc);
+				vc.presentingViewController = self;
+				
+				if let presentedView = self.presentedViewController?.view {
+					// Dim the current view.
+					dimView = UIView(frame: .zero);
+					dimView?.backgroundColor = .dimmed;
+					self.view.addSubview(dimView!);
+					dimView?.leftAnchor.constraint(equalTo: self.view.leftAnchor).isActive = true;
+					dimView?.topAnchor.constraint(equalTo: self.view.topAnchor).isActive = true;
+					dimView?.widthAnchor.constraint(equalTo: self.view.widthAnchor).isActive = true;
+					dimView?.heightAnchor.constraint(equalTo: self.view.heightAnchor).isActive = true;
+					// Create a background around for the presented view.
+					presentedView.backgroundColor = .background;
+					// Add the presented controller's view to the hierarchy in the correct position.
+					self.view.addSubview(presentedView);
+					let targetRect = presentationController.frameOfPresentedViewContainerViewInContainerView;
+					presentedView.frame = targetRect;
+					// Constraint the view to the correct frame.
+					presentedView.leftAnchor.constraint(equalTo: self.view.leftAnchor, constant: targetRect.origin.x, multiplier: 0, withPriority: .defaultHigh).isActive = true;
+					presentedView.topAnchor.constraint(equalTo: self.view.topAnchor, constant: targetRect.origin.y, multiplier: 0, withPriority: .defaultHigh).isActive = true;
+					presentedView.widthAnchor.constraint(equalTo: targetRect.size.width).isActive = true;
+					presentedView.heightAnchor.constraint(equalTo: targetRect.size.height).isActive = true;
+					self.view.setNeedsLayout();
+					self.view.setNeedsDisplay();
+				}
+			} else {
+				presentationController.presentingViewController.present(vc, animated: animated, completion: completion);
+			}
+		}
+	}
+	
+	public func dismiss(animated: Bool, completion: (() -> Void)?) {
+		// If we are presenting a controller, then remove it from our view hierarchy.
+		if presentedViewController != nil {
+			dimView?.removeFromSuperview();
+			dimView = nil;
+			// Set all relevant variables to nil.
+			presentedViewController?.view.removeFromSuperview();
+			presentedViewController?.removeFromParentViewController();
+			presentedViewController?.presentingViewController = nil;
+			presentedViewController = nil;
+			self.view.setNeedsLayout();
+			completion?();
+		} else if let presentingViewController = presentingViewController {
+			presentingViewController.dismiss(animated: animated, completion: completion);
+		} else {
+			self.parent?.dismiss(animated: true, completion: nil);
+		}
+	}
+	
+	internal func retrievePresentationController() -> UIPresentationController? {
+		if let ownPresentationController = ownPresentationController {
+			return ownPresentationController;
+		} else if let parent = parent {
+			return parent.retrievePresentationController();
+		} else {
+			return nil;
+		}
+	}
+	
+	public func initialisePresentationController() {
+		if modalPresentationStyle == .dialog {
+			self.ownPresentationController = UIDialogPresentationController(presentedViewController: self, presenting: nil);
+		} else if modalPresentationStyle == .popover {
+			self.ownPresentationController = UIPopoverPresentationController(presentedViewController: self, presenting: nil);
+		}
+	}
+	
     // MARK: - Responding to View Events
     
     open func viewWillAppear(_ animated: Bool) {
@@ -219,7 +318,6 @@ open class UIViewController: UIResponder {
 		// Animate the transition.
 		animator.startAnimation();
 	}
-	
     
     /// Returns a Boolean value indicating whether appearance methods are forwarded to child view controllers.
     ///
@@ -234,7 +332,6 @@ open class UIViewController: UIResponder {
     /// You do this by calling the child view controller's `beginAppearanceTransition(_:animated:)`
     /// and `endAppearanceTransition()` methods.
     public var shouldAutomaticallyForwardAppearanceMethods: Bool {
-        
         return true
     }
     
@@ -282,13 +379,6 @@ open class UIViewController: UIResponder {
     // MARK: - Getting Other Related View Controllers
     
     /// The view controller that presented this view controller.
-    public private(set) weak var presentingViewController: UIViewController?
-    
-    /// The view controller that is presented by this view controller, or one of its ancestors in the view controller hierarchy.
-    public var presentedViewController: UIViewController? {
-        
-        return nil
-    }
     
     public final weak var parent: UIViewController?
 	
@@ -322,10 +412,14 @@ open class UIViewController: UIResponder {
 	
 	// MARK: - Window Bar Display.
 	
-	public var windowBarItem: UIWindowBarItem = UIWindowBarItem();
+	public var headerBarItem: UIHeaderBarItem = UIHeaderBarItem() {
+		didSet {
+			updateHeaderBar();
+		}
+	}
 	
 	// Informs the window controller that the window bar has been updated.
-	public func updateWindowBar() {
+	public func updateHeaderBar() {
 		windowController?.redisplayWindowBar();
 	}
     
@@ -345,7 +439,7 @@ open class UIViewController: UIResponder {
         
         childViewControllers.forEach { $0.didReceiveMemoryWarning() }
     }
-    
+	
     // MARK: - UIResponder
     
     open override var next: UIResponder? {
@@ -357,4 +451,10 @@ open class UIViewController: UIResponder {
         
         return self.view.firstResponder ?? super.firstResponder
     }
+}
+
+// TODO: Add ios compatibility modes
+public enum UIModalPresentationStyle: Int {
+	case dialog
+	case popover
 }

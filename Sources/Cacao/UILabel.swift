@@ -77,8 +77,6 @@ open class UILabel: UIView {
     
     open override func draw(_ rect: CGRect) {
 		
-		print("Drawing TextLabel");
-		
         guard let context = UIGraphicsGetCurrentContext()
             else { return }
 		

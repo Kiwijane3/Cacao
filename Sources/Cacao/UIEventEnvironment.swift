@@ -40,7 +40,8 @@ internal final class UIEventEnvironment {
 		
 		var dispatchTouchEvent = false;
 		
-        for hidEvent in eventQueue {
+		for hidEvent in eventQueue {
+			debugPrint(hidEvent);
             guard let event = event(for: hidEvent)
                 else { handleNonUIEvent(hidEvent); continue }
            // Dispatch non-touch events immediately. Since touch events use a single event for all touches, that is only dispatched once to avoid multiple calls.
@@ -56,6 +57,7 @@ internal final class UIEventEnvironment {
 		// Dispatch touch event.
 		if dispatchTouchEvent, let touchesEvent = touchesEvent {
 			application.sendEvent(touchesEvent);
+			debugPrint(touchesEvent);
 		}
 		// Remove 
 		clearStoredEvents();
@@ -79,7 +81,7 @@ internal final class UIEventEnvironment {
         switch hidEvent.data {
             
         case let .touch(mouseEvent, windowLocation):
-			return eventForPress(event: mouseEvent, at: windowLocation, time: timestamp);
+			return nil;
 			
 		case let .mouse(mouseEvent, windowLocation):
 			return eventForPress(event: mouseEvent, at: windowLocation, time: timestamp);
@@ -99,7 +101,6 @@ internal final class UIEventEnvironment {
 	// Processes an screen input event and returns the current touchesEvent if it needs updating.
 	private func eventForPress(event mouseEvent: IOHIDEvent.ScreenInputEvent, at windowLocation: CGPoint, time timestamp: Double) -> UIEvent? {
 		// Establish the event, either retrieving it or creating a new one.
-		debugPrint("eventForPress(event: at: time:) invoked");
 		// If this touch is contiguous with a live touch sequence, then update that touch sequence. Currently, the code will always update the first touch sequence, and assumes that touch is live, as an event with one ended event will be cleared at the end of the dispatch cycle. This is sufficient for mouse and single touch, but does not support multi-touch. To support multi-touch, a function that identifies which live touch sequence is appropriate.
 		if let event = touchesEvent, let touch = event.liveTouches.first {
 			let newPhase: UITouchPhase;

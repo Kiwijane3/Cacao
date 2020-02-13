@@ -12,7 +12,7 @@ public class SplitViewDemoController: UISplitViewController {
 	
 	public override init() {
 		super.init(withPrimary: PrimaryController(), withDetail: DetailController());
-		self.windowBarItem.leftBarItems.append(UIBarButtonItem(title: "Toggle Primary", style: .plain, action: { (_) in
+		self.headerBarItem.leftBarItems.append(UIBarButtonItem(title: "Toggle Primary", style: .plain, action: { (_) in
 			if self.preferredDisplayMode == .primaryHidden {
 				self.preferredDisplayMode = .allVisible;
 			} else {

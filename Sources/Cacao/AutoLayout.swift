@@ -321,10 +321,10 @@ internal class AutoLayoutManager {
 	
 	internal func removeMarginInsetVariables(for view: UIView) {
 		do {
-			try solver.removeEditVariable(variable: variable(for: .marginInsetLeft, on: view));
-			try solver.removeEditVariable(variable: variable(for: .marginInsetRight, on: view));
-			try solver.removeEditVariable(variable: variable(for: .marginInsetTop, on: view));
-			try solver.removeEditVariable(variable: variable(for: .marginInsetBottom, on: view));
+			try solver.removeEditVariable(variable(for: .marginInsetLeft, on: view));
+			try solver.removeEditVariable(variable(for: .marginInsetRight, on: view));
+			try solver.removeEditVariable(variable(for: .marginInsetTop, on: view));
+			try solver.removeEditVariable(variable(for: .marginInsetBottom, on: view));
 		} catch {
 			debugPrint("Could remove margin inset variables for \(view): \(error)");
 		}
@@ -407,10 +407,12 @@ internal class AutoLayoutManager {
 	
 	internal func updateMarginInsetVariables(for subview: UIView) {
 		do {
-			try solver.suggestValue(variable: variable(for: .marginInsetLeft, on: subview), value: subview.layoutMargins.left);
-			try solver.suggestValue(variable: variable(for: .marginInsetRight, on: subview), value: subview.layoutMargins.right);
-			try solver.suggestValue(variable: variable(for: .marginInsetTop, on: subview), value: subview.layoutMargins.top);
-			try solver.suggestValue(variable: variable(for: .marginInsetBottom, on: subview), value: subview.layoutMargins.bottom);
+			try solver.suggestValue(variable: variable(for: .marginInsetLeft, on: subview), value: Double(subview.layoutMargins.left));
+			try solver.suggestValue(variable: variable(for: .marginInsetRight, on: subview), value: Double(subview.layoutMargins.right));
+			try solver.suggestValue(variable: variable(for: .marginInsetTop, on: subview), value: Double(subview.layoutMargins.top));
+			try solver.suggestValue(variable: variable(for: .marginInsetBottom, on: subview), value: Double(subview.layoutMargins.bottom));
+		} catch {
+			debugPrint("Could not update margin inset variables for \(subview): \(error)");
 		}
 	}
 	
@@ -423,7 +425,6 @@ internal class AutoLayoutManager {
 				createIntrinsicSizeXVariable(for: subview);
 			}
 			do {
-				debugPrint("Setting intrinsic width to \(subview.intrinsicContentSize.width) on view \(subview)");
 				try solver.suggestValue(variable: variable(for: .intrinsicSizeX, on: subview), value: Double(subview.intrinsicContentSize.width));
 			} catch {
 				debugPrint("Could not suggest intrinsic width for \(subview): \(error)");

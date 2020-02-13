@@ -5,3 +5,7 @@ Cacao.xcodeproj
 *.xcuserstate
 *.xcworkspacedata
 *.xcuserdatad
+.swiftpm
+
+Package.resolved
+Package.resolved

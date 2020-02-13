@@ -96,4 +96,6 @@ public struct UIColor {
 	
 	public static let border = UIColor(red: 200, green: 199, blue: 198);
 	
+	public static let dimmed = UIColor(red: 0, green: 0, blue: 0, alpha: 0.5);
+	
 }

@@ -105,8 +105,6 @@ open class UIView: UIResponder {
 			setNeedsDisplay();
 		}
 	}
-	
-	
     
     /// A Boolean value that determines whether the view is hidden.
     ///
@@ -188,6 +186,9 @@ open class UIView: UIResponder {
         
         setNeedsDisplay()
     }
+	
+	// Draw into a texture larger than the bounds so the edges don't get clipped.
+	public final var textureAllowance: CGFloat = 8;
     
     //var tintAdjustmentMode: UIViewTintAdjustmentMode
     
@@ -245,7 +246,7 @@ open class UIView: UIResponder {
     /// If you want this view to handle multi-touch events exclusively,
     /// set the values of both this property and the `isExclusiveTouch property` to `true`.
     public final var isMultipleTouchEnabled: Bool = false
-    
+	
     /// A Boolean value that indicates whether the receiver handles touch events exclusively.
     ///
     /// Setting this property to true causes the receiver to block the delivery
@@ -771,7 +772,12 @@ open class UIView: UIResponder {
 	
 	public func invalidateIntrinsicContentSize() {
 		superview?.layoutManager.notifyIntrinsicContentSizeInvalidated(on: self);
+		superview?.childIntrinsicSizeChanged();
 		superview?.setNeedsLayout();
+	}
+	
+	internal func childIntrinsicSizeChanged() {
+		// NOOP
 	}
 	
 	/// These values store the values for the compression resistance priority on both axes.
@@ -934,20 +940,17 @@ open class UIView: UIResponder {
     
     @nonobjc
     public final func convert(_ point: CGPoint, from view: UIView?) -> CGPoint {
-        
-        fatalError()
+		return (view ?? self.window)?.convert(point, to: self) ?? .zero;
     }
     
     @nonobjc
-    public final func convert(_ rect: CGRect, to view: UIView?) -> CGPoint {
-        
-        fatalError()
+    public final func convert(_ rect: CGRect, to view: UIView?) -> CGRect {
+		return CGRect(origin: convert(rect.origin, to: view), size: rect.size);
     }
     
     @nonobjc
-    public final func convert(_ rect: CGRect, from view: UIView?) -> CGPoint {
-        
-        fatalError()
+    public final func convert(_ rect: CGRect, from view: UIView?) -> CGRect {
+		return CGRect(origin: convert(rect.origin, to: self), size: rect.size);
     }
     
     // MARK: - Drawing
@@ -999,7 +1002,7 @@ open class UIView: UIResponder {
 		self.window?.needsDisplay = true
 	}
     
-	internal final func render(on window: UIWindow, in rect: SDL_Rect) throws {
+	internal final func render(on window: UIWindow, at origin: SDL_Point) throws {
         
         guard shouldRender
             else { return }
@@ -1008,13 +1011,16 @@ open class UIView: UIResponder {
         let nativeSize = (width: Int(bounds.size.width * scale),
                           height: Int(bounds.size.height * scale))
         
+		let canvasSize = (width: nativeSize.width + Int(textureAllowance * scale),
+						  height: nativeSize.height + Int(textureAllowance * scale));
+		
         let texture: SDLTexture
         
         // reuse cached texture if view hasn't been resized.
         if let cachedTexture = self.texture,
             let attributes = try? cachedTexture.attributes(),
-            attributes.width == nativeSize.width,
-            attributes.height == nativeSize.height {
+			attributes.width == canvasSize.width,
+			attributes.height == canvasSize.height {
             
             texture = cachedTexture
             
@@ -1023,8 +1029,8 @@ open class UIView: UIResponder {
             texture = try SDLTexture(renderer: window.renderer,
                                      format: SDLPixelFormat.Format(integerLiteral: UInt32(SDL_PIXELFORMAT_ARGB8888 )), // SDL_PIXELFORMAT_ARGB8888
                                      access: .streaming,
-                                     width: nativeSize.width,
-                                     height: nativeSize.height)
+									 width: canvasSize.width,
+									 height: canvasSize.height)
             
             try texture.setBlendMode([.alpha])
             
@@ -1039,8 +1045,8 @@ open class UIView: UIResponder {
             
 				let surface = try Cairo.Surface.Image(mutableBytes: $0.assumingMemoryBound(to: UInt8.self),
 													   format: .argb32,
-													   width: nativeSize.width,
-													   height: nativeSize.height,
+													   width: canvasSize.width,
+													   height: canvasSize.height,
 													   stride: $1)
 			
 				// reset memory
@@ -1049,7 +1055,6 @@ open class UIView: UIResponder {
 				let context = try! CGContext(surface: surface, size: bounds.size)
 				context.shouldAntialias = true;
 				context.scaleBy(x: scale, y: scale)
-			
 				// CoreGraphics drawing
 				draw(in: context)
 			
@@ -1058,26 +1063,51 @@ open class UIView: UIResponder {
 				surface.finish()
 			}
         }
-			
+		
+		// Enlarge the 
+		let targetRect = SDL_Rect(x: origin.x, y: origin.y, w: Int32(canvasSize.width), h: Int32(canvasSize.height));
         
-        try window.renderer.copy(texture, destination: rect)
+		try window.renderer.copy(texture, destination: targetRect);
     }
     
     internal func draw(in context: Silica.CGContext) {
         
         UIGraphicsPushContext(context)
-        
+		
+		// Clear anything in the context.
+		var clearRect = UIBezierPath(rect: CGRect(origin: .zero, size: frame.size));
+		UIColor.clear.set();
+		clearRect.fill();
+		clearRect.stroke();
+		
+		// Apply clips where required for each ancestor in sequence, starting with the superview;
+		var clipView = superview;
+		while clipView != nil {
+			if clipView!.clipsToBounds {
+				let clipPath = UIBezierPath(roundedRect: CGRect(origin: convert(.zero, from: clipView), size: clipView!.frame.size), cornerRadius: clipView!.borderRadius);
+				context.addPath(clipPath.cgPath);
+				context.clip();
+			}
+			clipView = clipView?.superview;
+		}
+		
+		// Apply the view's own clip
+		
+		let clipPath = UIBezierPath(roundedRect: CGRect(origin: .zero, size: frame.size), cornerRadius: borderRadius);
+		context.addPath(clipPath.cgPath);
+		context.clip();
+		
         // draw the background.
-		let background = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: borderRadius / 4, y: borderRadius / 4), size: CGSize(width: frame.width - borderRadius / 2, height: frame.height - borderRadius / 2)), cornerRadius: borderRadius);
+		let background = UIBezierPath(roundedRect: CGRect(origin: .zero, size: frame.size), cornerRadius: borderRadius);
 		backgroundColor?.setFill();
 		background.fill();
 		
 		// Draw the border
-		let border = UIBezierPath(roundedRect: CGRect(origin: CGPoint(x: borderRadius / 4 + borderWidth / 2, y: borderRadius / 4 + borderWidth / 2), size: CGSize(width: frame.size.width - borderRadius / 2 - borderWidth / 1, height:  frame.size.height - borderRadius / 2 - borderWidth / 1)), cornerRadius: borderRadius);
+		let border = UIBezierPath(roundedRect: CGRect(origin: .zero, size: frame.size), cornerRadius: borderRadius);
 		borderColor?.setStroke();
-		border.lineWidth = borderWidth;
+		border.lineWidth = borderWidth * 2;
 		border.stroke();
-        
+		
         // apply alpha
 		context.setAlpha(alpha)
         
@@ -1110,9 +1140,7 @@ open class UIView: UIResponder {
 	/// TODO: Calculate the constraints here.
     @inline(__always)
     open func layoutSubviews() {
-		
 		if constraints.count > 0 {
-			debugPrint("Using constraint-based layout for view \(self)");
 			layoutManager.autoLayout();
 		}
 	}

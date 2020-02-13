@@ -7,7 +7,7 @@
 
 import Foundation
 
-public class UIWindowBar: UIView {
+public class UIHeaderBar: UIView {
 	
 	// MARK: - Properties
 	
@@ -19,15 +19,17 @@ public class UIWindowBar: UIView {
 	
 	public weak var windowController: UIWindowController? {
 		didSet {
-			controls.windowController = windowController;
+			controls?.windowController = windowController;
 		}
 	}
+	
+	public let doesShowControls: Bool;
 	
 	public var leftGroup: UIBarItemGroup;
 	
 	public var rightGroup: UIBarItemGroup;
 	
-	public var controls: UIWindowControls;
+	public var controls: UIWindowControls?;
 	
 	public var centerView: UIView? {
 		didSet {
@@ -47,31 +49,41 @@ public class UIWindowBar: UIView {
 		}
 	}
 	
-	public var windowBarItem: UIWindowBarItem? {
+	public var headerBarItem: UIHeaderBarItem? {
 		didSet {
 			displayItem();
 		}
 	}
 	
 	
-	public init() {
+	public init(showsWindowControls doesShowControls: Bool = true) {
+		self.doesShowControls = doesShowControls;
 		leftGroup = UIBarItemGroup();
 		rightGroup = UIBarItemGroup();
-		controls = UIWindowControls();
+		if doesShowControls {
+			controls = UIWindowControls();
+		}
 		centerView = nil;
 		super.init(frame: .null);
 		self.backgroundColor = .windowBarBackground;
 		self.layoutMargins = UIEdgeInsets(vertical: 8, horizontal: 8);
-		controls.windowController = windowController;
+		if let controls = controls {
+			controls.windowController = windowController;
+			self.addSubview(controls);
+		}
 		self.addSubview(leftGroup);
 		self.addSubview(rightGroup);
-		self.addSubview(controls);
 		self.leftGroup.leftAnchor.constraint(equalTo: self.leftMarginAnchor).isActive = true;
 		self.leftGroup.centerYAnchor.constraint(equalTo: self.centerYAnchor).isActive = true;
-		self.controls.rightAnchor.constraint(equalTo: self.rightMarginAnchor).isActive = true;
-		self.controls.centerYAnchor.constraint(equalTo: self.centerYAnchor).isActive = true;
-		self.rightGroup.rightAnchor.constraint(equalTo: controls.leftAnchor, constant: -8).isActive = true;
+		if let controls = controls {
+			controls.rightAnchor.constraint(equalTo: self.rightMarginAnchor).isActive = true;
+			controls.centerYAnchor.constraint(equalTo: self.centerYAnchor).isActive = true;
+			rightGroup.rightAnchor.constraint(equalTo: controls.leftAnchor, constant: -8).isActive = true;
+		} else {
+			self.rightGroup.rightAnchor.constraint(equalTo: self.rightMarginAnchor).isActive = true;
+		}
 		self.rightGroup.centerYAnchor.constraint(equalTo: self.centerYAnchor).isActive = true;
+		// Create a constraint to hide the window controls.
 		self.setNeedsLayout();
 	}
 	
@@ -79,7 +91,7 @@ public class UIWindowBar: UIView {
 	
 	// Displays the current item.
 	public func displayItem() {
-		if let windowBarItem = windowBarItem {
+		if let windowBarItem = headerBarItem {
 			var leftBarItems = windowBarItem.leftBarItems;
 			// Add the back button if requested.
 			if windowBarItem.showsBackButton {

@@ -18,7 +18,7 @@ public class UIWindowController: UIViewController {
 		}
 	}
 	
-	public private(set) var windowBar: UIWindowBar;
+	public private(set) var windowBar: UIHeaderBar;
 	
 	public var rootViewController: UIViewController? {
 		didSet {
@@ -55,7 +55,7 @@ public class UIWindowController: UIViewController {
 	
 	public init(withRootController rootController: UIViewController, becomeKey: Bool = true) {
 		self.rootViewController = rootController;
-		self.windowBar = UIWindowBar();
+		self.windowBar = UIHeaderBar();
 		super.init();
 		self.windowBar.windowController = self;
 		self.view = UIWindow();
@@ -74,26 +74,17 @@ public class UIWindowController: UIViewController {
 		window.setNeedsDisplay();
 	}
 	
-	private let handleDimension: CGFloat = 20;
+	private let handleDimension: CGFloat = 8;
 	
 	public func installResizeHandles() {
 		let horizontalResizeHandle = UIWindowHandle(forMode: .resizeWidth);
 		self.horizontalResizeHandle = horizontalResizeHandle;
-		horizontalResizeHandle.backgroundColor = .black;
-		horizontalResizeHandle.borderColor = .black;
-		horizontalResizeHandle.borderWidth = 2;
 		window.addSubview(horizontalResizeHandle);
 		let verticalResizeHandle = UIWindowHandle(forMode: .resizeHeight);
 		self.verticalResizeHandle = verticalResizeHandle;
-		verticalResizeHandle.backgroundColor = .black;
-		verticalResizeHandle.borderColor = .black;
-		verticalResizeHandle.borderWidth = 2;
 		window.addSubview(verticalResizeHandle);
 		let bothResizeHandle = UIWindowHandle(forMode: .resizeBoth);
 		self.bothResizeHandle = bothResizeHandle;
-		bothResizeHandle.backgroundColor = .black;
-		bothResizeHandle.borderColor = .black;
-		bothResizeHandle.borderWidth = 2;
 		window.addSubview(bothResizeHandle);
 		// Constrain the both resize handle to the lower right.
 		bothResizeHandle.widthAnchor.constraint(equalTo: handleDimension).isActive = true;
@@ -149,7 +140,7 @@ public class UIWindowController: UIViewController {
 	}
 	
 	public func redisplayWindowBar() {
-		windowBar.windowBarItem = rootViewController?.windowBarItem;
+		windowBar.headerBarItem = rootViewController?.headerBarItem;
 	}
 	
 	public func minimise() {

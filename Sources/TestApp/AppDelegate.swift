@@ -13,7 +13,7 @@ internal class AppDelegate: UIApplicationDelegate {
 	
 	func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?) -> Bool {
 		debugPrint("Working directory is \(FileManager.default.currentDirectoryPath)");
-		UIWindowController(withRootController: UINavigationController(rootViewController: WindowBarTestController()));
+		UIWindowController(withRootController: UINavigationController(rootViewController: RootViewController()));
 		return true;
 	}
 	

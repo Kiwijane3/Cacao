@@ -21,10 +21,10 @@ public class WindowBarTestController: UIViewController {
 		self.label?.preferredMaxLayoutWidth = 256;
 		self.label?.centerXAnchor.constraint(equalTo: self.view.centerXAnchor).isActive = true;
 		self.label?.centerYAnchor.constraint(equalTo: self.view.centerYAnchor).isActive = true;
-		self.windowBarItem.showsBackButton = true;
-		self.windowBarItem.rightBarItems = [UIBarButtonItem(title: "Normal", style: .plain), UIBarButtonItem(title: "Suggested", style: .suggested)];
-		self.windowBarItem.leftBarItems = [UIBarButtonItem(title: "Cancel", style: .destructive)];
-		self.windowBarItem.title = "Window Bar Test";
+		self.headerBarItem.showsBackButton = true;
+		self.headerBarItem.rightBarItems = [UIBarButtonItem(title: "Normal", style: .plain), UIBarButtonItem(title: "Suggested", style: .suggested)];
+		self.headerBarItem.leftBarItems = [UIBarButtonItem(title: "Cancel", style: .destructive)];
+		self.headerBarItem.title = "Window Bar Test";
 	}
 	
 }

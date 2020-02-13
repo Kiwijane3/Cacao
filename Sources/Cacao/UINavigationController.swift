@@ -42,12 +42,12 @@ open class UINavigationController: UIViewController {
 		}
 	}
 	
-	public override var windowBarItem: UIWindowBarItem {
+	public override var headerBarItem: UIHeaderBarItem {
 		get {
-			return topViewController?.windowBarItem ?? UIWindowBarItem();
+			return topViewController?.headerBarItem ?? UIHeaderBarItem();
 		}
 		set {
-			topViewController?.windowBarItem = newValue;
+			topViewController?.headerBarItem = newValue;
 		}
 	}
 	
@@ -69,10 +69,10 @@ open class UINavigationController: UIViewController {
 	
 	// Constrains the topViewController's root view to the appropriate view area, and triggers a new layout pass.
 	public func constrainMainView() {
-		topView?.topMarginAnchor.constraint(equalTo: view.topAnchor).isActive = true;
-		topView?.leftMarginAnchor.constraint(equalTo: view.leftAnchor).isActive = true;
-		topView?.rightMarginAnchor.constraint(equalTo: view.rightAnchor).isActive = true;
-		topView?.bottomMarginAnchor.constraint(equalTo: view.bottomAnchor).isActive = true;
+		topView?.topAnchor.constraint(equalTo: view.topAnchor).isActive = true;
+		topView?.leftAnchor.constraint(equalTo: view.leftAnchor).isActive = true;
+		topView?.rightAnchor.constraint(equalTo: view.rightAnchor).isActive = true;
+		topView?.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true;
 		self.view.setNeedsLayout();
 		topView?.setNeedsLayout();
 	}
@@ -98,7 +98,7 @@ open class UINavigationController: UIViewController {
 			};
 			pushAnimator.addCompletion { (_) in
 				self.constrainMainView();
-				self.updateWindowBar();
+				self.updateHeaderBar();
 			};
 			transition(from: viewControllers[viewControllers.count - 2], to: topViewController!, withAnimator: pushAnimator);
 		}
@@ -120,7 +120,7 @@ open class UINavigationController: UIViewController {
 		}
 		popAnimator.addCompletion { (_) in
 			self.constrainMainView();
-			self.updateWindowBar();
+			self.updateHeaderBar();
 		}
 		// Perform the transition with the animator.
 		transition(from: origin, to: target, withAnimator: popAnimator);

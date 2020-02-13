@@ -11,6 +11,8 @@ import Silica
 import SDL
 import CSDL2
 
+import Cairo
+
 /// An object that provides the backdrop for your app’s user interface and provides important event-handling behaviors.
 open class UIWindow: UIView {
     
@@ -82,28 +84,30 @@ open class UIWindow: UIView {
 		// Get the options from the shared application.
 		let options = UIApplication.shared.options;
 		
-		var windowOptions: BitMaskOptionSet<SDLWindow.Option> = [.allowRetina, .opengl];
+		var windowOptions: BitMaskOptionSet<SDLWindow.Option> = [.allowRetina, .opengl, .borderless];
 		
 		if options.canResizeWindow {
-			windowOptions.insert(.resizable);
+			// windowOptions.insert(.resizable);
 		}
+		
 		
 		let initialWindowSize = options.windowSize;
 		
 		debugPrint()
 		
-		sdlWindow = try! SDLWindow(title: options.windowName, frame: (x: .centered, y: .centered, width: Int(initialWindowSize.width), height: Int(initialWindowSize.height)), options: windowOptions);
-		
+		sdlWindow = try! SDLWindow(title: options.windowName, frame: (x: .centered, y: .centered, width: Int(initialWindowSize.width), height: Int(initialWindowSize.height)), shaped: false, options: windowOptions);
+
 		renderer = try! SDLRenderer(window: sdlWindow);
 		
-		
 		super.init(frame: .zero);
+		self.clipsToBounds = true;
 		self.backgroundColor = .background;
 		self.updateSize();
     }
 	
 	internal func updateSize() {
 		sizeChanged();
+		// try? updateWindowShape();
 		self.setNeedsLayout();
 		self.setNeedsDisplay();
 	}
@@ -153,15 +157,11 @@ open class UIWindow: UIView {
 		relativeOrigin.y += (view.frame.origin.y + (view.superview?.bounds.origin.y ?? 0.0)) * scale
 		
 		// frame of view relative to SDL window
-		let rect = SDL_Rect(x: Int32(relativeOrigin.x),
-							y: Int32(relativeOrigin.y),
-							w: Int32(view.bounds.size.width * scale),
-							h: Int32(view.bounds.size.height * scale))
-		
-		let scale = self.scale;
+		let origin = SDL_Point(x: Int32(relativeOrigin.x),
+							   y: Int32(relativeOrigin.y));
 		
 		// render view
-		try view.render(on: self, in: rect)
+		try view.render(on: self, at: origin);
 		
 		// render subviews
 		try view.subviews.forEach { try render(view: $0, origin: relativeOrigin) }
@@ -422,13 +422,53 @@ open class UIWindow: UIView {
 		try? update();
 	}
 	
+	public func updateWindowShape() throws {
+		if !sdlWindow.isShaped {
+			debugPrint("Not a shaped window!");
+		}
+		let canvasSize = (width: Int(self.windowSize.width * scale / 2), height: Int(self.windowSize.height * scale / 2));
+		let shapeSurface = try SDLSurface(size: canvasSize, format: SDLPixelFormat.Format(integerLiteral: UInt32(SDL_PIXELFORMAT_ARGB8888)));
+		try! shapeSurface.withUnsafeMutableBytes {
+			let surface = try! Cairo.Surface.Image(mutableBytes: $0.assumingMemoryBound(to: UInt8.self),
+				format: .argb32,
+				width: canvasSize.width,
+				height: canvasSize.height,
+				stride: shapeSurface.pitch);
+			
+			memset($0, 0, surface.stride * surface.height);
+			
+			let context = try! CGContext(surface: surface, size: bounds.size);
+			debugPrint(context);
+			context.shouldAntialias = true;
+			context.scaleBy(x: scale, y: scale);
+			
+			UIGraphicsPushContext(context);
+			
+			/**
+			UIColor.clear.setFill();
+			let clearRect = UIBezierPath(rect: CGRect(origin: .zero, size: windowSize));
+			clearRect.fill();
+			*/
+			/**
+			UIColor.black.setFill();
+			let shapeRect = UIBezierPath(roundedRect: CGRect(origin: .zero, size: windowSize), byRoundingCorners: .allCorners, cornerRadii: CGSize(width: borderRadius, height: borderRadius));
+			shapeRect.fill();
+			*/
+			UIGraphicsPopContext();
+			
+			surface.flush();
+			surface.finish();
+			
+		}
+		
+		sdlWindow.setShape(surface: shapeSurface);
+	}
+	
 }
 
 // MARK: - Supporting Types
 
 /// The positioning of windows relative to each other.
-///
-/// The stacking of levels takes precedence over the stacking of windows within each level.
 /// That is, even the bottom window in a level obscures the top window of the next level down.
 /// Levels are listed in order from lowest to highest.
 public typealias UIWindowLevel = CGFloat

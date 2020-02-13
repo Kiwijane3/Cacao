@@ -62,7 +62,7 @@ open class UIControl: UIView {
 		targetActions = [TargetAction]();
 	}
     
-	/// Returns the actions performed on a target object when the specified event occurs. Note: On Cacao, this function will also contain dummy selectors representing targetActions registered without selectors, which will have the id field as the id given for that target action and a no-op action.
+	/// Returns the actions performed on a target object when the specified event occurs. Not functional on Cacao.
     ///
     /// - Parameter target: The target object—that is, an object that has an action method associated with this control.
     /// You must pass an explicit object for this method to return a meaningful result.

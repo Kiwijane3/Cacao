@@ -26,9 +26,9 @@ public final class UIButton: UIControl {
 		case custom(background: UIColor, border: UIColor);
 	}
 	
-	public private(set) var titleLabel: UILabel?;
+	public private(set) var titleLabel: UILabel;
 	
-	public private(set) var imageView: UIImageView?;
+	public private(set) var imageView: UIImageView;
 	
 	// The type of the button.
 	public var buttonType: ButtonType {
@@ -47,23 +47,23 @@ public final class UIButton: UIControl {
 	
 	private var hideImage: Bool = false {
 		didSet {
-			hideImageConstraints?.forEach { (constraint) in
-				constraint.isActive = hideImage;
-			}
+			
 		}
 	}
-	
-	private var hideImageConstraints: [NSLayoutConstraint]?;
 	
 	private var hideTitle: Bool = false {
 		didSet {
-			hideTitleConstraints?.forEach { (constraint) in
-				constraint.isActive = hideTitle;
-			}
+			
 		}
 	}
 	
-	private var hideTitleConstraints: [NSLayoutConstraint]?;
+	private var cachedIntrinsicContentSize: CGSize = .zero;
+	
+	public override var intrinsicContentSize: CGSize {
+		get {
+			return cachedIntrinsicContentSize;
+		}
+	}
 	
 	public init(type: ButtonType = .plain) {
 		// Initialise storage variables;
@@ -71,38 +71,74 @@ public final class UIButton: UIControl {
 		images = [UIControlState: UIImage]();
 		titleColors = [UIControlState: UIColor]();
 		buttonType = type;
+		titleLabel = UILabel();
+		imageView = UIImageView();
 		super.init(frame: .null);
 		self.intrinsicSizeFitsContent = true;
 		self.layoutMargins = UIEdgeInsets(vertical: 4, horizontal: 9);
 		updateFrameForButtonType();
 		self.borderWidth = 1;
-		self.borderRadius = 6;
-		let titleLabel = UILabel();
+		self.borderRadius = 8;
 		addSubview(titleLabel);
-		self.titleLabel = titleLabel;
-		let imageView = UIImageView();
 		addSubview(imageView);
-		self.imageView = imageView;
-		// Set the layout with the image to the left of the title.
-		imageView.leftAnchor.constraint(equalTo: self.leftMarginAnchor).isActive = true;
-		imageView.topAnchor.constraint(equalTo: self.topMarginAnchor).isActive = true;
-		titleLabel.leftAnchor.constraint(equalTo: imageView.rightAnchor).isActive = true;
-		titleLabel.topAnchor.constraint(equalTo: self.topMarginAnchor).isActive = true;
-		// Make the imageView 32 points by 32 points, with a defaultHigh priority so it can be overridden by the hiding constraints.
-		imageView.widthAnchor.constraint(equalTo: 16, withPriority: .defaultHigh).isActive = true;
-		imageView.heightAnchor.constraint(equalTo: 16, withPriority: .defaultHigh).isActive = true;
-		// Create constraints to hide the image and title when necessary.
-		self.hideImageConstraints = [
-			imageView.widthAnchor.constraint(equalTo: 0),
-			imageView.heightAnchor.constraint(equalTo: 0)
-		];
-		self.hideTitleConstraints = [
-			titleLabel.widthAnchor.constraint(equalTo: 0),
-			titleLabel.heightAnchor.constraint(equalTo: 0)
-		];
 		refresh();
 	}
     
+	// MARK: - Layout
+	
+	private func recalculateIntrinsicContentSize() {
+		// The height of the label is 32p, unless the intrinsic height of the label is greater. The image occupies the full height, excluding margins, and has a 1:1 aspect ratio The label's intrinsic size is used for its real size, and is centered if it does not occupy the full space. There is horizontal spacing of 8p between the label and the image if both present.
+		var height: CGFloat = 32.0;
+		var width = layoutMargins.left + layoutMargins.right;
+		if !hideTitle {
+			let labelAccommodationSize = titleLabel.intrinsicContentSize.height + layoutMargins.top + layoutMargins.bottom;
+			if  labelAccommodationSize > height {
+				height = labelAccommodationSize;
+			}
+			width += titleLabel.intrinsicContentSize.width;
+		}
+		if !hideImage {
+			width += height - layoutMargins.top - layoutMargins.bottom;
+		}
+		if !hideImage && !hideTitle {
+			width += 8;
+		}
+		cachedIntrinsicContentSize.width = width;
+		cachedIntrinsicContentSize.height = height;
+		invalidateIntrinsicContentSize();
+	}
+	
+	public override func layoutSubviews() {
+		// Create an x cursor to insert appropriately.
+		var xCursor = layoutMargins.left;
+		// Layout the image.
+		if !hideImage {
+			imageView.isHidden = false;
+			imageView.frame.origin = CGPoint(x: xCursor, y: layoutMargins.top);
+			let imageHeight = intrinsicContentSize.height - layoutMargins.top - layoutMargins.bottom;
+			imageView.frame.size = CGSize(width: imageHeight, height: imageHeight);
+			xCursor += imageHeight;
+		} else {
+			imageView.frame = .zero;
+			imageView.isHidden = true;
+		}
+		if !hideTitle {
+			titleLabel.isHidden = false;
+			// Add spacing if the image is also present.
+			if !hideImage {
+				xCursor += 8;
+			}
+			// Center the text view in the bounds.
+			let centerXInMargins = layoutMargins.top + ((frame.height - layoutMargins.bottom) / 2);
+			titleLabel.frame.origin.y = centerXInMargins - (titleLabel.intrinsicContentSize.height / 2);
+			titleLabel.frame.origin.x = xCursor;
+			titleLabel.frame.size = titleLabel.intrinsicContentSize;
+		} else {
+			titleLabel.isHidden = true;
+			titleLabel.frame = .zero;
+		}
+	}
+	
     // MARK: - Methods
 	
 	public var currentTitle: String? {
@@ -162,20 +198,19 @@ public final class UIButton: UIControl {
 	
 	// Updates the content of the button.
 	public func refresh() {
-		debugPrint("Calling refresh for button \(self)");
-		debugPrint("Current title was \(currentTitle), current image was \(currentImage)");
-		titleLabel?.text = currentTitle;
-		titleLabel?.textColor = currentTitleColor;
+		titleLabel.text = currentTitle;
+		titleLabel.textColor = currentTitleColor;
 		// If the titleLabel is currently displaying a blank string or nil, constraint its frame to 0,0 to prevent additional padding.
 		hideTitle = (currentTitle == nil || currentTitle == "");
-		imageView?.image = currentImage;
+		imageView.image = currentImage;
 		hideImage = currentImage == nil;
 		// Now that we have calculated our new intrinsic size, trigger a layout pass for our container view.
 		// superview?.setNeedsLayout();
+		recalculateIntrinsicContentSize();
 		self.setNeedsLayout();
 		setNeedsDisplay();
-		self.titleLabel?.setNeedsDisplay();
-		self.imageView?.setNeedsDisplay();
+		self.titleLabel.setNeedsDisplay();
+		self.imageView.setNeedsDisplay();
 	}
 	
 	private func updateFrameForButtonType() {
@@ -203,12 +238,6 @@ public final class UIButton: UIControl {
 		}
 		// refresh in order to set title color.
 		refresh();
-	}
-	
-	public override var intrinsicContentSize: CGSize {
-		get {
-			return autoLayoutContentSize;
-		}
 	}
 	
     public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
